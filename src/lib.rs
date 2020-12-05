@@ -1,3 +1,4 @@
+#![feature(slice_partition_dedup)]
 extern crate titlecase;
 
 pub mod format;

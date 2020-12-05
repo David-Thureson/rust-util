@@ -1,6 +1,26 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
+use crate::format::{format_count, println_indent_tab};
+
+pub fn count_distinct<T> (values: &[T]) -> usize
+    where T: Ord + Clone
+{
+    let mut v = values.to_vec();
+    v.sort();
+    v.dedup();
+    v.len()
+}
+
+pub fn list_duplicates<T> (values: &[T]) -> Vec<T>
+    where T: Ord + Clone
+{
+    let mut v = values.to_vec();
+    v.sort();
+    let (_, duplicates) = v.partition_dedup();
+    duplicates.to_vec()
+}
+
 #[derive(Debug)]
 pub struct Grouper<T>
     where T: Ord + Display + Clone
@@ -35,7 +55,7 @@ impl <T> Grouper<T>
     pub fn list_by_key(&self) {
         let count_width = self.count_width();
         for entry in self.entries.values() {
-            println!("{:>width$} - {}", crate::format::format_count(entry.count), entry.key, width=count_width)
+            println!("{:>width$} - {}", format_count(entry.count), entry.key, width=count_width)
         }
     }
 
@@ -45,7 +65,7 @@ impl <T> Grouper<T>
         v.sort_by(|a, b| { a.count.cmp(&b.count).reverse().then(a.key.cmp(&b.key)) } );
         let limit = max_entries.unwrap_or(v.len());
         for entry in v.iter().take(limit) {
-            crate::format::println_indent_tab(depth, &format!("{:>width$} - {}", crate::format::format_count(entry.count), entry.key, width=count_width));
+            println_indent_tab(depth, &format!("{:>width$} - {}", format_count(entry.count), entry.key, width=count_width));
         }
     }
 
@@ -74,27 +94,29 @@ impl <T> Grouper<T>
     }
 
     fn count_width(&self) -> usize {
-        crate::format::format_count(self.max_count().unwrap_or(0)).len()
+        format_count(self.max_count().unwrap_or(0)).len()
     }
 
-    pub fn print(&self, depth: usize, max_entries: Option<usize>) {
-        let entry_count = format!("entries = {}", crate::format::format_count(self.entry_count()));
+    /*
+    pub fn print_by_key(&self, depth: usize, max_entries: Option<usize>) {
+        let entry_count = format!("entries = {}", format_count(self.entry_count()));
         let details = if self.entry_count() > 0 {
             format!("; items = {}; counts from {} to {}; keys from {} to {}",
-                    crate::format::format_count(self.item_count()),
-                    crate::format::format_count(self.min_count().unwrap()),
-                    crate::format::format_count(self.max_count().unwrap()),
+                    format_count(self.item_count()),
+                    format_count(self.min_count().unwrap()),
+                    format_count(self.max_count().unwrap()),
                     self.min_key().unwrap(),
                     self.max_key().unwrap())
         } else {
             "".to_string()
         };
         let line = format!("Grouper \"{}\": {}{}", self.name, entry_count, details);
-        crate::format::println_indent_tab(depth, &line);
+        println_indent_tab(depth, &line);
+        let limit = max_entries.unwrap_or(v.len());
         if max_entries.unwrap_or(0) > 0 {
             self.print_by_count(depth + 1, max_entries)
         }
-    }
+    */
 }
 
 impl <T> GrouperEntry<T>

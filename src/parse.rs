@@ -1,6 +1,15 @@
-use std::{fs, path, io};
+use std::{fs, path};
+use std::io::{self, BufRead, BufReader};
 use std::collections::btree_map::BTreeMap;
 use glob::{glob_with, MatchOptions};
+use std::fs::File;
+
+pub fn read_file_as_lines(file_name: &str) -> Vec<String> {
+    let file = File::open(file_name).unwrap();
+    let reader = BufReader::new(file);
+    // Read the file line by line using the lines() iterator from std::io::BufRead.
+    reader.lines().map(|line| line.unwrap()).collect::<Vec<_>>()
+}
 
 pub fn read_file_into_sections(file_name: &str, header_prefix: &str) -> BTreeMap<String, String> {
     let content = fs::read_to_string(file_name).unwrap();

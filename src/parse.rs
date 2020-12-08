@@ -102,6 +102,25 @@ pub fn split_3_two_delimiters<'a>(line: &'a str, pat_1: &str, pat_2: &str) -> (&
     (first, second, third)
 }
 
+pub fn delimited_entries(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
+    let mut v = vec![];
+    for s in text.split(left_delimiter).skip(1) {
+        dbg!(s);
+        let one_value = s.split(right_delimiter).nth(0).unwrap().to_string();
+        dbg!(&one_value);
+        v.push(one_value);
+    }
+    v
+}
+
+pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
+    trim_string_vector(&delimited_entries(text, left_delimiter, right_delimiter))
+}
+
+pub fn trim_string_vector(v: &Vec<String>) -> Vec<String> {
+    v.iter().map(|x| x.trim().to_string()).collect()
+}
+
 pub fn find_in_string<'a>(s: &'a str, pat_1: &str, pat_2: &str) -> Vec<&'a str> {
     let mut v = vec![];
     for (index, _) in s.match_indices(pat_1) {

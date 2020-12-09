@@ -105,9 +105,9 @@ pub fn split_3_two_delimiters<'a>(line: &'a str, pat_1: &str, pat_2: &str) -> (&
 pub fn delimited_entries(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
     let mut v = vec![];
     for s in text.split(left_delimiter).skip(1) {
-        dbg!(s);
+        //bg!(s);
         let one_value = s.split(right_delimiter).nth(0).unwrap().to_string();
-        dbg!(&one_value);
+        //bg!(&one_value);
         v.push(one_value);
     }
     v
@@ -115,6 +115,15 @@ pub fn delimited_entries(text: &str, left_delimiter: &str, right_delimiter: &str
 
 pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
     trim_string_vector(&delimited_entries(text, left_delimiter, right_delimiter))
+}
+
+pub fn split_once_with_option(value: &str, delimiter: &str) -> (String, Option<String>) {
+    if value.contains(delimiter) {
+        let (a, b) = value.split_once(delimiter).unwrap();
+        (a.to_string(), Some(b.to_string()))
+    } else {
+        (value.to_string(), None)
+    }
 }
 
 pub fn trim_string_vector(v: &Vec<String>) -> Vec<String> {

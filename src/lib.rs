@@ -1,4 +1,5 @@
 #![feature(slice_partition_dedup)]
+#![feature(str_split_once)]
 extern crate titlecase;
 
 pub mod format;

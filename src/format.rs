@@ -1,8 +1,13 @@
 use num_format::{Locale, ToFormattedStr, ToFormattedString};
 use std::fmt::Display;
 use std::time::Instant;
+use textwrap;
 
 use super::parse;
+
+pub fn indent_space(depth: usize) -> String {
+    "    ".repeat(depth)
+}
 
 pub fn format_indent_space(depth: usize, line: &str) -> String {
     format!("{}{}", "    ".repeat(depth), line)
@@ -158,6 +163,31 @@ pub fn windows_file_name(s: &str, substitute: &str) -> String {
     // This doesn't check for characters with an ASCII value between 1 and 31, which are also not
     // allowed.
     substitute_characters(s, "<>:\"/\\|?*", substitute)
+}
+
+pub fn wrap_hanging_indent(s: &str, label: &str, depth: usize, width: usize) -> String {
+    let initial_indent = format!("{}{}", indent_space(depth), label);
+    let subsequent_indent = indent_space(depth + 1);
+    let options = textwrap::Options::new(width)
+        .initial_indent(&initial_indent)
+        .subsequent_indent(&subsequent_indent);
+    textwrap::fill(s, options)
+}
+
+pub fn print_wrap_hanging_indent(s: &str, label: &str, depth: usize, width: usize) {
+    println!("{}", wrap_hanging_indent(s, label, depth, width));
+}
+
+pub fn header(level: usize, label: &str, width: usize) -> String {
+    match level {
+        0 => format!("\n{}\n{}\n{}\n\n// {}", "/".repeat(width), "/".repeat(width), "/".repeat(width), label),
+        1 => format!("\n{}\n\n// {}", "/".repeat(width), label),
+        _ => format!("\n// {}", label),
+    }
+}
+
+pub fn print_header(level: usize, label: &str, width: usize) {
+    println!("{}", header(level, label, width));
 }
 
 #[cfg(test)]

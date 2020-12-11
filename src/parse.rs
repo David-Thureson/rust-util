@@ -195,6 +195,10 @@ pub fn extract_optional(val: &str, left_delimiter: &str, right_delimiter: &str) 
     }
 }
 
+pub fn digits_only(value: &str) -> String {
+    value.chars().filter(|char| char.is_digit(10)).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

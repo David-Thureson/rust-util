@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use crate::format::{format_count, println_indent_tab};
+use crate::format::{format_count, format_count_opt, println_indent_tab};
 
 pub fn count_distinct<T> (values: &[T]) -> usize
     where T: Ord + Clone
@@ -64,9 +64,19 @@ impl <T> Grouper<T>
         let mut v = self.entries.values().collect::<Vec<_>>();
         v.sort_by(|a, b| { a.count.cmp(&b.count).reverse().then(a.key.cmp(&b.key)) } );
         let limit = max_entries.unwrap_or(v.len());
+        println_indent_tab(depth, &self.label_line());
         for entry in v.iter().take(limit) {
-            println_indent_tab(depth, &format!("{:>width$} - {}", format_count(entry.count), entry.key, width=count_width));
+            println_indent_tab(depth + 1, &format!("{:>width$} - {}", format_count(entry.count), entry.key, width=count_width));
         }
+    }
+
+    pub fn label_line(&self) -> String {
+        format!("\nname: {}: entries: {}, items: {}, counts: {}..={}",
+                self.name,
+                format_count(self.entry_count()),
+                format_count(self.item_count()),
+                format_count_opt(self.min_count()),
+                format_count_opt(self.max_count()))
     }
 
     pub fn entry_count(&self) -> usize {

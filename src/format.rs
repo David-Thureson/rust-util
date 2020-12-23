@@ -1,6 +1,7 @@
 use num_format::{Locale, ToFormattedStr, ToFormattedString};
 use std::fmt::Display;
 use std::time::Instant;
+use itertools::Itertools;
 use textwrap;
 
 use super::parse;
@@ -55,6 +56,10 @@ pub fn format_count(val: usize) -> String {
 */
 pub fn format_count<T: ToFormattedStr>(val: T) -> String {
     val.to_formatted_string(&Locale::en)
+}
+
+pub fn format_count_opt<T: ToFormattedStr>(val: Option<T>) -> String {
+    val.map_or("None".to_string(),|val| format_count(val))
 }
 
 pub fn format_int_locale<T>(val: T, locale: &Locale) -> String
@@ -188,6 +193,24 @@ pub fn header(level: usize, label: &str, width: usize) -> String {
 
 pub fn print_header(level: usize, label: &str, width: usize) {
     println!("{}", header(level, label, width));
+}
+
+pub fn list_flags(labels: &[&str], flags: &[bool]) -> String {
+    debug_assert_eq!(labels.len(), flags.len());
+    labels
+        .iter()
+        .zip(flags.iter())
+        .map(|(label, flag)| if *flag { format!(" {}", label) } else { "".to_string() })
+        .join("")
+}
+
+pub fn list_flags_with_not(labels: &[&str], flags: &[bool]) -> String {
+    debug_assert_eq!(labels.len(), flags.len());
+    labels
+        .iter()
+        .zip(flags.iter())
+        .map(|(label, flag)| format!("{}{}", if *flag { "" } else { "not " }, label))
+        .join(", ")
 }
 
 #[cfg(test)]

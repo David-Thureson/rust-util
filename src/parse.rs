@@ -30,72 +30,131 @@ pub fn break_into_sections(content: String, header_prefix: &str) -> BTreeMap<Str
     map
 }
 
-pub fn before<'a>(line: &'a str, pat: &str) -> &'a str {
-    if line.len() == 0 || pat.len() == 0 {
-        line
+pub fn read_file_into_sections_by_line(file_name: &str, header_prefix: &str, header_suffix: Option<&str>) -> BTreeMap<String, Vec<String>> {
+    break_into_sections_by_line(&read_file_as_lines(file_name), header_prefix, header_suffix)
+}
+
+pub fn break_into_sections_by_line(lines: &[String], header_prefix: &str, header_suffix: Option<&str>) -> BTreeMap<String, Vec<String>> {
+    let mut map = BTreeMap::new();
+    let mut header = "".to_string();
+    for line in lines {
+        let line = line.trim();
+        if line.starts_with(header_prefix) {
+            header = between(line, header_prefix, header_suffix.unwrap_or("")).to_string();
+        } else {
+            if !line.is_empty() {
+                map.entry(header.clone()).or_insert(vec![]).push(line.to_string());
+            }
+        }
+    }
+    map
+}
+
+pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_prefix: &str) -> (BTreeMap<String, String>, Vec<&'a str>) {
+    // Read a set of name-value pairs such as those found in a TOML file:
+    //   name = "language"
+    //   version = "0.1.0"
+    //   authors = ["David Thureson <David.G.Thureson@gmail.com>"]
+    //   edition = "2018"
+    // The values may be quoted or unquoted. Lines without the delimiter such as an equal sign are
+    // returned in an array. Blank lines are ignored. A given key such as "version" above may appear
+    // only once.
+    let mut map = BTreeMap::new();
+    let mut remaining_lines = vec![];
+    for line in lines {
+        let line = line.trim();
+        if !line.is_empty() || !line.starts_with(comment_prefix) {
+            let (a, b) = split_1_or_2(line.trim(), delimiter);
+            match b {
+                Some(b) => {
+                    let name = a.trim();
+                    assert!(!map.contains_key(name), "Duplicated key in name-value pair: \"{}\"", name);
+                    let value = unquote(b);
+                    map.insert(name.to_string(), value.to_string());
+                },
+                None => {
+                    remaining_lines.push(line);
+                }
+            }
+        }
+    }
+    (map, remaining_lines)
+}
+
+pub fn unquote<'a>(value: &'a str) -> &'a str {
+    between(value.trim(), "\"", "\"").trim()
+}
+
+pub fn before<'a>(value: &'a str, pat: &str) -> &'a str {
+    if value.len() == 0 || pat.len() == 0 {
+        value
     } else {
-        line.splitn(2, pat).into_iter().next().unwrap()
+        value.splitn(2, pat).into_iter().next().unwrap()
     }
 }
 
-pub fn after<'a>(line: &'a str, pat: &str) -> &'a str {
-    if line.len() == 0 || pat.len() == 0 {
-        line
+pub fn after<'a>(value: &'a str, pat: &str) -> &'a str {
+    if value.len() == 0 || pat.len() == 0 {
+        value
     } else {
-        line.splitn(2, pat).into_iter().last().unwrap()
+        value.splitn(2, pat).into_iter().last().unwrap()
     }
 }
 
-// Both delimiters must appear in the line.
-pub fn between<'a>(line: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
-    rbefore(after(line, pat_before), pat_after)
+pub fn between<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
+    rbefore(after(value, pat_before), pat_after)
 }
 
-pub fn rbefore<'a>(line: &'a str, pat: &str) -> &'a str {
-    if line.len() == 0 || pat.len() == 0 {
-        line
+pub fn rbefore<'a>(value: &'a str, pat: &str) -> &'a str {
+    if value.len() == 0 || pat.len() == 0 {
+        value
     } else {
-        line.rsplitn(2, pat).into_iter().last().unwrap()
+        value.rsplitn(2, pat).into_iter().last().unwrap()
     }
 }
 
-pub fn rafter<'a>(line: &'a str, pat: &str) -> &'a str {
-    if line.len() == 0 || pat.len() == 0 {
-        line
+pub fn rafter<'a>(value: &'a str, pat: &str) -> &'a str {
+    if value.len() == 0 || pat.len() == 0 {
+        value
     } else {
-        line.rsplitn(2, pat).into_iter().next().unwrap()
+        value.rsplitn(2, pat).into_iter().next().unwrap()
     }
 }
 
-pub fn split_1_or_2<'a>(line: &'a str, pat: &str) -> (&'a str, Option<&'a str>) {
-    let mut split = line.splitn(2, pat);
+pub fn split_1_or_2<'a>(value: &'a str, pat: &str) -> (&'a str, Option<&'a str>) {
+    let mut split = value.splitn(2, pat);
     (
-        split.next().expect(&format!("No first split item found for line = \"{}\"", line)),
+        split.next().expect(&format!("No first split item found for value = \"{}\"", value)),
         split.next()
     )
 }
 
-pub fn split_2<'a>(line: &'a str, pat: &str) -> (&'a str, &'a str) {
+pub fn split_2<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
     assert!(pat.len() > 0);
-    let mut split = line.splitn(2, pat);
+    let mut split = value.splitn(2, pat);
     (
-        split.next().expect(&format!("No first split item found for line = \"{}\"", line)),
-        split.next().expect(&format!("No second split item found for line = \"{}\"", line))
+        split.next().expect(&format!("No first split item found for value = \"{}\"", value)),
+        split.next().expect(&format!("No second split item found for value = \"{}\"", value))
     )
 }
 
-pub fn rsplit_2<'a>(line: &'a str, pat: &str) -> (&'a str, &'a str) {
+pub fn split_2_trim<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
+    let (a, b) = split_2(value, pat);
+    (a.trim(), b.trim())
+}
+
+pub fn rsplit_2<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
     assert!(pat.len() > 0);
-    let mut split = line.rsplitn(2, pat);
+    let mut split = value.rsplitn(2, pat);
     (
-        split.next().expect(&format!("No first split item found for line = \"{}\"", line)),
-        split.next().expect(&format!("No second split item found for line = \"{}\"", line))
+        split.next().expect(&format!("No first split item found for value = \"{}\"", value)),
+        split.next().expect(&format!("No second split item found for value = \"{}\"", value))
     )
 }
 
-pub fn split_3_two_delimiters<'a>(line: &'a str, pat_1: &str, pat_2: &str) -> (&'a str, &'a str, &'a str) {
-    //bg!(line, pat_1, pat_2);
-    let (first, rest) = split_2(line, pat_1);
+pub fn split_3_two_delimiters<'a>(value: &'a str, pat_1: &str, pat_2: &str) -> (&'a str, &'a str, &'a str) {
+    //bg!(value, pat_1, pat_2);
+    let (first, rest) = split_2(value, pat_1);
     //bg!(first, rest);
     let (second, third) = split_2(&rest, pat_2);
     //bg!(second, third);

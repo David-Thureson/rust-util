@@ -4,7 +4,7 @@ const PATH_CHROME_BOOKMARKS: &str = r"E:\Temp\bookmarks_1_29_20.html";
 
 use std::path;
 use num_format::Locale;
-use util_rust::{html, format};
+use util::{html, format};
 use terminal_size::{Width, Height, terminal_size};
 
 // use util-rust::html;

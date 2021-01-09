@@ -1,5 +1,5 @@
 [package]
-name = "util-rust"
+name = "util"
 version = "0.1.0"
 authors = ["David Thureson <David.G.Thureson@gmail.com>"]
 edition = "2018"

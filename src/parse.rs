@@ -64,7 +64,7 @@ pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_
     let mut remaining_lines = vec![];
     for line in lines {
         let line = line.trim();
-        if !line.is_empty() || !line.starts_with(comment_prefix) {
+        if !line.is_empty() && !line.starts_with(comment_prefix) {
             let (a, b) = split_1_or_2(line.trim(), delimiter);
             match b {
                 Some(b) => {
@@ -82,8 +82,21 @@ pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_
     (map, remaining_lines)
 }
 
+pub fn remove_delimiters<'a>(value: &'a str, left_delimiter: &str, right_delimiter: &str) -> &'a str {
+    let mut value = value.trim();
+    if value.starts_with(left_delimiter) {
+        value = &value[left_delimiter.len()..];
+    }
+    if value.ends_with(right_delimiter) {
+        let new_length = value.len() - right_delimiter.len();
+        value = &value[..new_length];
+    }
+    value.trim()
+}
+
 pub fn unquote<'a>(value: &'a str) -> &'a str {
-    between(value.trim(), "\"", "\"").trim()
+    remove_delimiters(value, "\"", "\"")
+    // value.trim().trim_start_matches("\"").trim_end_matches("\"")
 }
 
 pub fn before<'a>(value: &'a str, pat: &str) -> &'a str {
@@ -359,6 +372,16 @@ mod tests {
         assert_eq!("", after("abc", "bc"));
         // Three possible matches but we want the rightmost one.
         assert_eq!(" ghi", rafter("abc def c abc ghi", "c"));
+    }
+
+    #[test]
+    fn test_unquote() {
+        assert_eq!("abc", unquote("\"abc\""));
+        assert_eq!("abc", unquote("   \"abc\"  "));
+        assert_eq!("abc", unquote("   abc\"  "));
+        assert_eq!("abc", unquote("  \"  abc "));
+        assert_eq!("abc", unquote("  abc "));
+        assert_eq!("\" abc   \"\"", unquote(" \"\" abc   \"\"\""));
     }
 
 }

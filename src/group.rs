@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use crate::format::{format_count, format_count_opt, println_indent_tab};
+use std::cmp::Ordering;
 
 pub fn count_distinct<T> (values: &[T]) -> usize
     where T: Ord + Clone
@@ -64,9 +65,32 @@ impl <T> Grouper<T>
     }
 
     pub fn print_by_count(&self, depth: usize, max_entries: Option<usize>) {
+        self.print(depth, max_entries, true);
+    }
+
+    /*
+    pub fn print_by_count(&self, depth: usize, max_entries: Option<usize>) {
         let count_width = self.count_width();
         let mut v = self.entries.values().collect::<Vec<_>>();
         v.sort_by(|a, b| { a.count.cmp(&b.count).reverse().then(a.key.cmp(&b.key)) } );
+        let limit = max_entries.unwrap_or(v.len());
+        println_indent_tab(depth, &self.label_line());
+        for entry in v.iter().take(limit) {
+            println_indent_tab(depth + 1, &format!("{:>width$} - {}", format_count(entry.count), entry.key, width=count_width));
+        }
+    }
+    */
+
+    pub fn print_by_key(&self, depth: usize, max_entries: Option<usize>) {
+        self.print(depth, max_entries, false);
+    }
+
+    fn print(&self, depth: usize, max_entries: Option<usize>, sort_by_count: bool) {
+        let count_width = self.count_width();
+        let mut v = self.entries.values().collect::<Vec<_>>();
+        if sort_by_count {
+            v.sort_by(|a, b| { a.count.cmp(&b.count).reverse().then(a.key.cmp(&b.key)) } );
+        }
         let limit = max_entries.unwrap_or(v.len());
         println_indent_tab(depth, &self.label_line());
         for entry in v.iter().take(limit) {
@@ -111,26 +135,6 @@ impl <T> Grouper<T>
         format_count(self.max_count().unwrap_or(0)).len()
     }
 
-    /*
-    pub fn print_by_key(&self, depth: usize, max_entries: Option<usize>) {
-        let entry_count = format!("entries = {}", format_count(self.entry_count()));
-        let details = if self.entry_count() > 0 {
-            format!("; items = {}; counts from {} to {}; keys from {} to {}",
-                    format_count(self.item_count()),
-                    format_count(self.min_count().unwrap()),
-                    format_count(self.max_count().unwrap()),
-                    self.min_key().unwrap(),
-                    self.max_key().unwrap())
-        } else {
-            "".to_string()
-        };
-        let line = format!("Grouper \"{}\": {}{}", self.name, entry_count, details);
-        println_indent_tab(depth, &line);
-        let limit = max_entries.unwrap_or(v.len());
-        if max_entries.unwrap_or(0) > 0 {
-            self.print_by_count(depth + 1, max_entries)
-        }
-    */
 }
 
 impl <T> GrouperEntry<T>

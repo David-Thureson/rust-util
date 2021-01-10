@@ -48,8 +48,12 @@ impl <T> Grouper<T>
     }
 
     pub fn record_entry(&mut self, key: &T) {
+        self.record_entry_with_count(key, 1);
+    }
+
+    pub fn record_entry_with_count(&mut self, key: &T, count: usize) {
         let mut entry = self.entries.entry(key.clone()).or_insert_with(|| { GrouperEntry::new(key.clone()) } );
-        entry.count += 1;
+        entry.count += count;
     }
 
     pub fn list_by_key(&self) {

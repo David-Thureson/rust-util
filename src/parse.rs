@@ -50,7 +50,7 @@ pub fn break_into_sections_by_line(lines: &[String], header_prefix: &str, header
     map
 }
 
-pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_prefix: &str) -> (BTreeMap<String, String>, Vec<&'a str>) {
+pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_prefix: Option<&str>) -> (BTreeMap<String, String>, Vec<&'a str>) {
     // Read a set of name-value pairs such as those found in a TOML file:
     //   name = "language"
     //   version = "0.1.0"
@@ -59,6 +59,7 @@ pub fn parse_name_value_pairs<'a>(lines: &'a [String], delimiter: &str, comment_
     // The values may be quoted or unquoted. Lines without the delimiter such as an equal sign are
     // returned in an array. Blank lines are ignored. A given key such as "version" above may appear
     // only once.
+    let comment_prefix = comment_prefix.unwrap_or("{no comment prefix}");
     let mut map = BTreeMap::new();
     let mut remaining_lines = vec![];
     for line in lines {

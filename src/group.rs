@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use crate::format::{format_count, format_count_opt, println_indent_tab};
-use std::cmp::Ordering;
 
 pub fn count_distinct<T> (values: &[T]) -> usize
     where T: Ord + Clone

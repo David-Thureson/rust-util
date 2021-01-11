@@ -1,10 +1,11 @@
 use num_format::{Locale, ToFormattedStr, ToFormattedString};
 use std::fmt::Display;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use itertools::Itertools;
 use textwrap;
 
 use super::parse;
+use chrono::{DateTime, Local};
 
 pub fn indent_space(depth: usize) -> String {
     "    ".repeat(depth)
@@ -81,6 +82,22 @@ pub fn format_float_locale<T>(val: T, locale: &Locale, precision: usize) -> Stri
     } else {
         format!("{:?}", val)
     }
+}
+
+pub fn datetime_as_date(value: &DateTime<Local>) -> String {
+    value.format("%Y-%m-%d").to_string()
+}
+
+pub fn datetime(value: &DateTime<Local>) -> String {
+    value.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+pub fn systemtime_as_date(value: &SystemTime) -> String {
+    datetime_as_date(&DateTime::<Local>::from(*value))
+}
+
+pub fn systemtime(value: &SystemTime) -> String {
+    datetime(&DateTime::<Local>::from(*value))
 }
 
 // Return the value passed. This is used to show whether a function call is eager- or

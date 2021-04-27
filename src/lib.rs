@@ -2,11 +2,15 @@
 #![feature(str_split_once)]
 extern crate titlecase;
 
+pub mod convert;
+pub mod date_time;
 pub mod format;
+pub mod file_io;
 pub mod group;
 pub mod html;
 pub mod log;
 pub mod parse;
+pub mod tree;
 
 // type_name_of() seems to dereference automatically so it can't tell the difference between a basic value and a
 // reference to that value.

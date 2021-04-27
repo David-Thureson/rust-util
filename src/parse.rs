@@ -107,6 +107,19 @@ pub fn before<'a>(value: &'a str, pat: &str) -> &'a str {
     }
 }
 
+pub fn before_ci<'a>(value: &'a str, pat: &str) -> &'a str {
+    if value.len() == 0 || pat.len() == 0 {
+        value
+    } else {
+        let pos = value.to_lowercase().find(&pat.to_lowercase());
+        //rintln!("\"{}\"\t\"{}\"\t{:?}", value.to_lowercase(), pat.to_lowercase(), pos);
+        match pos {
+            Some(pos) => &value[..pos],
+            None => value,
+        }
+    }
+}
+
 pub fn after<'a>(value: &'a str, pat: &str) -> &'a str {
     if value.len() == 0 || pat.len() == 0 {
         value
@@ -272,6 +285,16 @@ pub fn digits_only(value: &str) -> String {
     value.chars().filter(|char| char.is_digit(10)).collect()
 }
 
+pub fn count_characters(strings: Vec<String>) {
+    let mut grouper = crate::group::Grouper::new("Characters");
+    for string in strings.iter() {
+        for char in string.chars() {
+            grouper.record_entry(&char);
+        }
+    }
+    grouper.print_by_key(0, None);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,10 +343,35 @@ mod tests {
         assert_eq!("abc", before("abc", "xyz"));
         // Normal.
         assert_eq!("a", before("abc", "b"));
+        // Different case.
+        assert_eq!("abc", before("abc", "B"));
+        assert_eq!("aBc", before("aBc", "b"));
         // Match right away.
         assert_eq!("", before("abc", "a"));
         // Three possible matches but we want the first one.
         assert_eq!("ab", before("abc def c abc ghi", "c"));
+    }
+
+    #[test]
+    fn test_before_ci() {
+        // Blank value.
+        assert_eq!("", before_ci("", ": "));
+        // Blank pattern,
+        assert_eq!("abc", before_ci("abc", ""));
+        // No match.
+        assert_eq!("abc", before_ci("abc", "xyz"));
+        // Normal.
+        assert_eq!("a", before_ci("abc", "b"));
+        assert_eq!("a", before_ci("abc", "B"));
+        assert_eq!("a", before_ci("aBc", "b"));
+        // Match right away.
+        assert_eq!("", before_ci("abc", "a"));
+        assert_eq!("", before_ci("abc", "A"));
+        assert_eq!("", before_ci("Abc", "a"));
+        // Three possible matches but we want the first one.
+        assert_eq!("ab", before_ci("abc def c abc ghi", "c"));
+        assert_eq!("ab", before_ci("abc def c abC ghi", "C"));
+        assert_eq!("ab", before_ci("abC def c abc ghi", "c"));
     }
 
     #[test]

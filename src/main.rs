@@ -16,7 +16,7 @@ fn main() {
     //gen_bookmarks_for_connectedtext();
     //try_format_locale();
     //try_terminal_size();
-    try_hanging_indent();
+    //try_hanging_indent();
 
     println!("\nUtil done.\n");
 }

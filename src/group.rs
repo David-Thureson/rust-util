@@ -25,8 +25,8 @@ pub fn list_duplicates<T> (values: &[T]) -> Vec<T>
 pub struct Grouper<T>
     where T: Ord + Display + Clone
 {
-    name: String,
-    entries: BTreeMap<T, GrouperEntry<T>>,
+    pub name: String,
+    pub entries: BTreeMap<T, GrouperEntry<T>>,
 }
 
 #[derive(Debug)]

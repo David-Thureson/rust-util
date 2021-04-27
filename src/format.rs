@@ -5,7 +5,7 @@ use itertools::Itertools;
 use textwrap;
 
 use super::parse;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, NaiveDate};
 
 pub fn indent_space(depth: usize) -> String {
     "    ".repeat(depth)
@@ -84,6 +84,12 @@ pub fn format_float_locale<T>(val: T, locale: &Locale, precision: usize) -> Stri
     }
 }
 
+pub fn format_float<T>(val: T, precision: usize) -> String
+    where T: Into<f64>
+{
+    format!("{:.*}", precision, val.into())
+}
+
 pub fn datetime_as_date(value: &DateTime<Local>) -> String {
     value.format("%Y-%m-%d").to_string()
 }
@@ -98,6 +104,10 @@ pub fn systemtime_as_date(value: &SystemTime) -> String {
 
 pub fn systemtime(value: &SystemTime) -> String {
     datetime(&DateTime::<Local>::from(*value))
+}
+
+pub fn format_naive_date_sortable(value: &NaiveDate) -> String {
+    value.format("%Y-%m-%d").to_string()
 }
 
 // Return the value passed. This is used to show whether a function call is eager- or
@@ -230,6 +240,90 @@ pub fn list_flags_with_not(labels: &[&str], flags: &[bool]) -> String {
         .join(", ")
 }
 
+pub fn remove_punctuation(value: &str, punctuation_chars: &str, replacement: char) -> String {
+    let value: String = value.chars()
+        .map(|c| if punctuation_chars.contains(c) {
+            replacement
+        } else {
+            c
+        })
+        .join("");
+    value
+}
+
+/*
+pub fn extract_quoted_strings(value: &str) -> Vec<String> {
+
+}
+*/
+
+#[allow(unreachable_code)]
+pub fn remove_repeated(value: &str, substring: &str) -> String {
+    let mut value = value.to_string();
+    let substring_doubled = substring.repeat(2);
+    loop {
+        let len = value.len();
+        value = value.replace(&substring_doubled, substring);
+        if value.len() == len {
+            return value;
+        }
+    }
+    unreachable!()
+}
+
+pub fn remove_surrounding_delimiters(value: &str, left: &str, right: &str) -> String {
+    if value.starts_with(left) && value.ends_with(right) {
+        value[left.len()..value.len()-right.len()].to_string()
+    } else {
+        value.to_string()
+    }
+}
+
+pub fn add_indefinite_article(value: &str) -> String {
+    assert!(!value.is_empty());
+    let vowels = ["a", "e", "i", "o", "u"];
+    if vowels.iter().any(|c| value.starts_with(c)) {
+        format!("an {}", value)
+    } else {
+        format!("a {}", value)
+    }
+}
+
+pub fn first_cap_phrase(value: &str) -> String {
+    if value.is_empty() {
+        "".to_string()
+    } else {
+        value.split(" ").into_iter()
+            .map(|word| first_cap_word(word))
+            .join(" ")
+    }
+}
+
+pub fn first_cap_word(value: &str) -> String {
+    if value.is_empty() {
+        "".to_string()
+    } else if value.len() == 1 {
+        value.to_uppercase()
+    } else {
+        let (first, rest) = value.split_at(1);
+        // format!("{}{}", value[0..1], value[1..])
+        format!("{}{}", first.to_uppercase(), rest.to_lowercase())
+    }
+}
+
+pub fn limit_length(value: &str, max_length: Option<usize>) -> String {
+    if let Some(max_length) = max_length {
+        assert!(max_length >= 4);
+        if value.len() <= max_length {
+            value.to_string()
+        } else {
+            format!("{}...", &value[..max_length - 3])
+        }
+    } else {
+        value.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -352,6 +446,26 @@ mod tests {
 
         // Two forced case substrings.
         assert_eq!("Abc of CON entire Def.TXT", title_case_file_name("abc of con entire def.TXT", Some(&["entire", "CON", "xyz"])));
+    }
+
+    #[test]
+    fn test_remove_repeated() {
+        assert_eq!("a&b   & c&", remove_repeated("a&&&&b   & c&&&", "&"));
+        assert_eq!("a&&&&b & c&&&", remove_repeated("a&&&&b   & c&&&", " "));
+        assert_eq!("a&&&&b   & c&&&", remove_repeated("a&&&&b   & c&&&", "c"));
+        assert_eq!("a&&&&b   & c&&&", remove_repeated("a&&&&b   & c&&&", "d"));
+        assert_eq!("a&&b   & c&&&", remove_repeated("a&&&&b   & c&&&", "&&"));
+    }
+
+    #[test]
+    fn test_remove_surrounding_delimiters() {
+        assert_eq!("abcd", remove_surrounding_delimiters("\"abcd\"", "\"", "\""));
+        assert_eq!("\"abcd\" ", remove_surrounding_delimiters("\"abcd\" ", "\"", "\""));
+        assert_eq!("\"abcd", remove_surrounding_delimiters("\"abcd", "\"", "\""));
+        assert_eq!("abcd\"", remove_surrounding_delimiters("abcd\"", "\"", "\""));
+        assert_eq!("abcd", remove_surrounding_delimiters("{abcd}", "{", "}"));
+        assert_eq!("}abcd{", remove_surrounding_delimiters("}abcd{", "{", "}"));
+        assert_eq!("", remove_surrounding_delimiters("{}", "{", "}"));
     }
 }
 

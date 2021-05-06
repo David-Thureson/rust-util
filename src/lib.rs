@@ -10,6 +10,7 @@ pub mod group;
 pub mod html;
 pub mod log;
 pub mod parse;
+pub mod stats_usize;
 pub mod tree;
 
 // type_name_of() seems to dereference automatically so it can't tell the difference between a basic value and a

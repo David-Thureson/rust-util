@@ -262,24 +262,6 @@ pub fn get_files_ci(path: &path::Path, wildcard: &str) -> Result<Vec<path::PathB
 }
 
 
-pub fn extract_optional(val: &str, left_delimiter: &str, right_delimiter: &str) -> (String, Option<String>) {
-    let left_pos = val.find(left_delimiter);
-    let right_pos = val.find(right_delimiter);
-    match (left_pos, right_pos) {
-        (Some(left_pos), Some(right_pos)) => {
-            if left_pos < right_pos {
-                let remainder = format!("{} {}", val[..left_pos].trim(), val[right_pos + 1..].trim());
-                let extracted = val[left_pos + 1..right_pos].trim().to_string();
-                (remainder, Some(extracted))
-            } else {
-                (val.trim().to_string(), None)
-            }
-        },
-        _ => {
-            (val.trim().to_string(), None)
-        }
-    }
-}
 
 pub fn digits_only(value: &str) -> String {
     value.chars().filter(|char| char.is_digit(10)).collect()

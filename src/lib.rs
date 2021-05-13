@@ -4,6 +4,7 @@ extern crate titlecase;
 
 pub mod convert;
 pub mod date_time;
+pub mod extract;
 pub mod format;
 pub mod file_io;
 pub mod group;

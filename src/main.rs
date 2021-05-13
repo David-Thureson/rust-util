@@ -4,7 +4,7 @@ const PATH_CHROME_BOOKMARKS: &str = r"E:\Temp\bookmarks_1_29_20.html";
 
 use std::path;
 use num_format::Locale;
-use util::{html, format};
+use util::*;
 use terminal_size::{Width, Height, terminal_size};
 
 // use util-rust::html;
@@ -17,6 +17,7 @@ fn main() {
     //try_format_locale();
     //try_terminal_size();
     //try_hanging_indent();
+    extract::try_extract_multiple();
 
     println!("\nUtil done.\n");
 }

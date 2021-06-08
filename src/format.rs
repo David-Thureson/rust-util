@@ -7,6 +7,8 @@ use textwrap;
 use super::parse;
 use chrono::{DateTime, Local, NaiveDate};
 
+//const ACRONYMS: [&str; 1] = ["TV"];
+
 pub fn indent_space(depth: usize) -> String {
     "    ".repeat(depth)
 }
@@ -282,7 +284,7 @@ pub fn remove_surrounding_delimiters(value: &str, left: &str, right: &str) -> St
 pub fn add_indefinite_article(value: &str) -> String {
     assert!(!value.is_empty());
     let vowels = ["a", "e", "i", "o", "u"];
-    if vowels.iter().any(|c| value.starts_with(c)) {
+    if vowels.iter().any(|c| value.to_lowercase().starts_with(c)) {
         format!("an {}", value)
     } else {
         format!("a {}", value)

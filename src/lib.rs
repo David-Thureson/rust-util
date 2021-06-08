@@ -111,3 +111,6 @@ mod tests {
     */
 }
 
+pub fn str_to_string_vector(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| value.to_string()).collect()
+}

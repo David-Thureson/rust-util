@@ -57,12 +57,24 @@ pub fn format_count(val: usize) -> String {
     val.to_formatted_string(&Locale::en)
 }
 */
+pub fn fc<T: ToFormattedStr>(val: T) -> String {
+    format_count(val)
+}
+
 pub fn format_count<T: ToFormattedStr>(val: T) -> String {
+    val.to_formatted_string(&Locale::en)
+}
+
+pub fn format_count_ref<T: ToFormattedStr>(val: &T) -> String {
     val.to_formatted_string(&Locale::en)
 }
 
 pub fn format_count_opt<T: ToFormattedStr>(val: Option<T>) -> String {
     val.map_or("None".to_string(),|val| format_count(val))
+}
+
+pub fn format_zeros(val: usize, digits: usize) -> String {
+    format!("{:0digits$}", val, digits = digits)
 }
 
 pub fn format_int_locale<T>(val: T, locale: &Locale) -> String
@@ -86,10 +98,29 @@ pub fn format_float_locale<T>(val: T, locale: &Locale, precision: usize) -> Stri
     }
 }
 
+pub fn ff<T>(val: T, precision: usize) -> String
+    where T: Into<f64>
+{
+    format_float(val, precision)
+}
+
 pub fn format_float<T>(val: T, precision: usize) -> String
     where T: Into<f64>
 {
     format!("{:.*}", precision, val.into())
+}
+
+pub fn list_of_counts<T>(vals: &[T]) -> String
+    where T: ToFormattedStr
+{
+    vals.iter().map(|x| format_count_ref(x)).join(" ")
+}
+
+pub fn list_of_counts_indexed<T>(vals: &[T]) -> String
+    where T: ToFormattedStr
+{
+    vals.iter().enumerate()
+        .map(|(index, x)| format!("[{}] {}", format_count(index), format_count_ref(x))).join(" ")
 }
 
 pub fn datetime_as_date(value: &DateTime<Local>) -> String {

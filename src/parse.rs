@@ -132,6 +132,20 @@ pub fn between<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str
     rbefore(after(value, pat_before), pat_after)
 }
 
+pub fn between_optional<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> Option<&'a str> {
+    if let Some(before_index) = value.find(pat_before) {
+        let just_after_before = before_index + pat_before.len();
+        if value[just_after_before..].find(pat_after).is_some() {
+            return Some(between(value, pat_before, pat_after));
+        }
+    }
+    None
+}
+
+pub fn between_optional_trim<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> Option<&'a str> {
+    between_optional(value, pat_before, pat_after).map(|x| x.trim())
+}
+
 pub fn rbefore<'a>(value: &'a str, pat: &str) -> &'a str {
     if value.len() == 0 || pat.len() == 0 {
         value

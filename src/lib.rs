@@ -6,7 +6,7 @@ pub mod convert;
 pub mod date_time;
 pub mod extract;
 pub mod format;
-pub mod file_io;
+pub mod file;
 pub mod group;
 pub mod html;
 pub mod log;

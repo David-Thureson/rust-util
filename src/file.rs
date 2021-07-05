@@ -6,10 +6,13 @@ use crate::parse::after;
 use crate::format::format_zeros;
 
 use crate::*;
-use std::error::Error;
 
 pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
     dir_entry.file_name().to_str().unwrap().to_string()
+}
+
+pub fn path_buf(components: &[&str]) -> PathBuf {
+    components.iter().collect::<PathBuf>()
 }
 
 pub fn path_name<P>(path: P) -> String
@@ -256,7 +259,11 @@ pub fn main() {
 
 #[cfg(test)]
 mod tests {
-    // This must be run single-threaded, so run:
+    // Unit tests normally run in parallel, so if multiple tests are changing the same folder
+    // they'll conflict. Therefore each test works on a subfolder of PATH_TEST named after the name
+    // of the test function.
+    //
+    // To run single-threaded, call:
     //   cargo test -- --test-threads=1
     // or
     //   cargo test -- --nocapture --test-threads=1
@@ -266,11 +273,21 @@ mod tests {
     const PATH_TEST: &str = r"C:\Test_Rust_File_Functions";
     const FOLDER_WITH_FILES: &str = "Subfolder With Files";
 
-    fn setup() {
-        if path_exists(PATH_TEST) {
-            fs::remove_dir_all(PATH_TEST).unwrap();
+    fn setup(test_function_name: &str) -> PathBuf {
+        let path = path_buf(&[PATH_TEST, test_function_name]);
+        if path_exists(&path) {
+            fs::remove_dir_all(&path).unwrap();
         }
-        fs::create_dir_all(PATH_TEST).unwrap();
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[allow(dead_code)]
+    fn assert_err<T>(result: Result<T, String>) {
+        match result {
+            Ok(_) => panic!("Result was not an error."),
+            Err(_) => (),
+        }
     }
 
     //#[inline]
@@ -285,15 +302,22 @@ mod tests {
         }
     }
 
-    fn assert_err<T>(result: Result<T, String>) {
-        match result {
-            Ok(_) => panic!("Result was not an error."),
-            Err(_) => (),
-        }
+    fn assert_err_path_exists<T, P>(result: Result<T, String>, path: P)
+        where P: AsRef<Path>
+    {
+        let exp_msg = format!("Path already exists: \"{}\".", path_name(&path));
+        assert_err_msg(result, &exp_msg);
     }
 
-    fn create_test_folder_with_files() -> (PathBuf, Vec<String>) {
-        let path_folder = [PATH_TEST, FOLDER_WITH_FILES].iter().collect::<PathBuf>();
+    fn assert_err_path_not_found<T, P>(result: Result<T, String>, path: P)
+        where P: AsRef<Path>
+    {
+        let exp_msg = format!("Path does not exist: \"{}\".", path_name(&path));
+        assert_err_msg(result, &exp_msg);
+    }
+
+    fn create_test_folder_with_files(path_root: &PathBuf) -> (PathBuf, Vec<String>) {
+        let path_folder = path_root.join(FOLDER_WITH_FILES);
         path_is_new_r(&path_folder).unwrap();
         let mut file_names = vec!["File G.txt", "File R.txt", "File B.txt"];
         fs::create_dir(&path_folder).unwrap();
@@ -302,8 +326,8 @@ mod tests {
         (path_folder, str_to_string_vector(&file_names))
     }
 
-    fn add_files_to_test_folder() -> (PathBuf, Vec<String>) {
-        let path_folder = [PATH_TEST, FOLDER_WITH_FILES].iter().collect::<PathBuf>();
+    fn add_files_to_test_folder(path_root: &PathBuf) -> (PathBuf, Vec<String>) {
+        let path_folder = path_root.join(FOLDER_WITH_FILES);
         path_exists_r(&path_folder).unwrap();
         let file_names = vec!["File 12.txt", "File 08.txt"];
         file_names.iter().for_each(|file_name| fs::write(path_folder.join(file_name), file_name).unwrap());
@@ -313,16 +337,16 @@ mod tests {
 
     #[test]
     fn test_path_file_name_r() {
-        setup();
+        let path_test_root = setup("test_path_file_name_r");
         let file_name = "Abc.txt";
-        let path = [PATH_TEST, file_name].iter().collect::<PathBuf>();
-        assert_eq!(file_name, path_file_name_r(path).unwrap());
+        let path_file = path_test_root.join(file_name);
+        assert_eq!(file_name, path_file_name_r(&path_file).unwrap());
     }
 
     #[test]
     fn test_path_exists() {
-        setup();
-        let path = [PATH_TEST, "Subfolder A"].iter().collect::<PathBuf>();
+        let path_test_root = setup("test_path_exists");
+        let path = path_test_root.join("Subfolder A");
         assert_eq!(false, path_exists(&path));
         fs::create_dir_all(&path).unwrap();
         assert!(path_exists(path));
@@ -330,40 +354,33 @@ mod tests {
 
     #[test]
     fn test_path_exists_r() {
-        setup();
-        let folder_name = "Subfolder B";
-        let path = [PATH_TEST, folder_name].iter().collect::<PathBuf>();
-        let exp_msg = format!("Path does not exist: \"{}\\{}\".", PATH_TEST, folder_name);
-        assert_err_msg(path_exists_r(&path), &exp_msg);
+        let path_test_root = setup("fn test_path_exists_r");
+        let path = path_test_root.join("Subfolder B");
+        assert_err_path_not_found(path_exists_r(&path), &path);
         fs::create_dir_all(&path).unwrap();
         assert!(path_exists_r(&path).is_ok());
     }
 
     #[test]
     fn test_path_is_new_r() {
-        setup();
-        let folder_name = "Subfolder C";
-        let path = [PATH_TEST, folder_name].iter().collect::<PathBuf>();
-        let exp_msg = format!("Path already exists: \"{}\\{}\".", PATH_TEST, folder_name);
+        let path_test_root = setup("test_path_is_new_r");
+        let path = path_test_root.join("Subfolder C");
         assert!(path_is_new_r(&path).is_ok());
         fs::create_dir_all(&path).unwrap();
-        assert_err_msg(path_is_new_r(&path), &exp_msg);
+        assert_err_path_exists(path_is_new_r(&path), &path);
     }
 
     #[test]
     fn test_path_is_directory() {
-        setup();
-        let folder_name = "Subfolder D";
-        let file_name = "File D.txt";
-        let path_folder = [PATH_TEST, folder_name].iter().collect::<PathBuf>();
-        let path_file = path_folder.join(&file_name);
-        let exp_msg = format!("Path already exists: \"{}\\{}\".", PATH_TEST, folder_name);
-        assert_err(path_is_directory_r(&path_folder));
-        assert_err(path_is_directory_r(&path_file));
+        let path_test_root = setup("test_path_is_directory");
+        let path_folder = path_test_root.join("Subfolder D");
+        let path_file = path_folder.join("File D.txt");
+        assert_err_path_not_found(path_is_directory_r(&path_folder), &path_folder);
+        assert_err_path_not_found(path_is_directory_r(&path_file), &path_file);
 
         fs::create_dir(&path_folder).unwrap();
         assert!(path_is_directory_r(&path_folder).unwrap());
-        assert_err(path_is_directory_r(&path_file));
+        assert_err_path_not_found(path_is_directory_r(&path_file), &path_file);
 
         fs::write(&path_file, "File content.").unwrap();
         assert!(path_is_directory_r(&path_folder).unwrap());
@@ -372,41 +389,40 @@ mod tests {
 
     #[test]
     fn test_path_entries_r() {
-        setup();
-        let (path_folder, exp_file_names) = create_test_folder_with_files();
+        let path_test_root = setup("test_path_entries_r");
+        let (path_folder, exp_file_names) = create_test_folder_with_files(&path_test_root);
         let mut act_file_names = path_entries_r(&path_folder).unwrap().iter()
             .map(|path_buf| path_file_name_r(path_buf).unwrap())
             .collect::<Vec<_>>();
         act_file_names.sort();
-        //bg!(&exp_file_names, &act_file_names);
         assert_eq!(exp_file_names, act_file_names);
     }
 
     #[test]
     fn test_back_up_folder_date_and_number_r() {
-        setup();
-        let path_missing_folder = [PATH_TEST, "Missing"].iter().collect::<PathBuf>();
-        assert_err(back_up_folder_date_and_number_r(path_missing_folder, PATH_TEST, "Back Red", 3));
+        let path_test_root = setup("test_back_up_folder_date_and_number_r");
+        let path_missing_folder = path_test_root.join("Missing");
+        assert_err_path_not_found(back_up_folder_date_and_number_r(&path_missing_folder, &path_test_root, "Back Red", 3), &path_missing_folder);
 
-        let (path_source_folder, exp_file_names) = create_test_folder_with_files();
+        let (path_source_folder, exp_file_names) = create_test_folder_with_files(&path_test_root);
 
         // The destination includes two levels of folders that don't exist yet.
-        let path_dest_base = [PATH_TEST, "Backup", "April"].iter().collect::<PathBuf>();
+        let path_dest_base = path_test_root.join("Backup").join("April");
 
         let path_dest_folder = back_up_folder_date_and_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 001", PATH_TEST);
+        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 001", path_name(&path_test_root));
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
 
         // Add some files to the source and create a second numbered backup.
-        let (_, exp_file_names) = add_files_to_test_folder();
+        let (_, exp_file_names) = add_files_to_test_folder(&path_test_root);
         let path_dest_folder = back_up_folder_date_and_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
-        dbg!(path_name(&path_dest_folder));
+        //bg!(path_name(&path_dest_folder));
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 002", PATH_TEST);
+        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 002", path_name(&path_test_root));
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
     }

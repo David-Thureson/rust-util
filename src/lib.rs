@@ -18,6 +18,24 @@ pub mod tree;
 // type_name_of() seems to dereference automatically so it can't tell the difference between a basic value and a
 // reference to that value.
 
+/*
+#[macro_export]
+macro_rules! path_buf {
+    // The pattern for a single `eval`
+    (eval $e:expr) => {{
+        {
+            PathBuf::from($e)
+        }
+    }};
+
+    // Decompose multiple `eval`s recursively
+    (eval $e:expr, $(eval $es:expr),+) => {{
+        let mut path_buf = path_buf! { eval $e }
+        calculate! { $(eval $es),+ }
+    }};
+}
+*/
+
 #[macro_export]
 macro_rules! rse {
     ($a:expr) => {

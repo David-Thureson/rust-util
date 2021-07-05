@@ -291,6 +291,7 @@ pub fn count_characters(strings: Vec<String>) {
     grouper.print_by_key(0, None);
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -429,3 +430,4 @@ mod tests {
     }
 
 }
+ */

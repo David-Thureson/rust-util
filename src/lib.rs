@@ -1,5 +1,6 @@
 #![feature(slice_partition_dedup)]
 #![feature(str_split_once)]
+#![macro_use]
 extern crate titlecase;
 
 pub mod convert;
@@ -16,6 +17,18 @@ pub mod tree;
 
 // type_name_of() seems to dereference automatically so it can't tell the difference between a basic value and a
 // reference to that value.
+
+#[macro_export]
+macro_rules! result_to_string_error {
+    ($a:expr) => {
+        {
+            match $a {
+                Ok(t) => Ok(t),
+                Err(e) => Err(e.to_string()),
+            }
+        }
+    };
+}
 
 #[macro_export]
 macro_rules! types {
@@ -101,6 +114,10 @@ macro_rules! show_size_align {
     };
 }
 
+pub fn str_to_string_vector(values: &[&str]) -> Vec<String> {
+    values.iter().map(|value| value.to_string()).collect()
+}
+
 #[cfg(test)]
 mod tests {
     /*
@@ -111,6 +128,3 @@ mod tests {
     */
 }
 
-pub fn str_to_string_vector(values: &[&str]) -> Vec<String> {
-    values.iter().map(|value| value.to_string()).collect()
-}

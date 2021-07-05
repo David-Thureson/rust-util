@@ -357,6 +357,7 @@ pub fn limit_length(value: &str, max_length: Option<usize>) -> String {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,4 +502,5 @@ mod tests {
         assert_eq!("", remove_surrounding_delimiters("{}", "{", "}"));
     }
 }
+*/
 

@@ -19,6 +19,19 @@ pub mod tree;
 // reference to that value.
 
 #[macro_export]
+macro_rules! rse {
+    ($a:expr) => {
+        {
+            match $a {
+                Ok(t) => Ok(t),
+                Err(e) => Err(e.to_string()),
+            }
+        }
+    };
+}
+
+// Same as rse!
+#[macro_export]
 macro_rules! result_to_string_error {
     ($a:expr) => {
         {

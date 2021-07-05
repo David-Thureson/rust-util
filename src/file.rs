@@ -6,10 +6,17 @@ use crate::parse::after;
 use crate::format::format_zeros;
 
 use crate::*;
+use std::error::Error;
 
-// pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
-//     dir_entry.file_name().to_str().unwrap().to_string()
-// }
+pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
+    dir_entry.file_name().to_str().unwrap().to_string()
+}
+
+pub fn path_name<P>(path: P) -> String
+    where P: AsRef<Path>,
+{
+    path.as_ref().to_string_lossy().to_string()
+}
 
 pub fn path_file_name_r<P>(path: P) -> Result<String, String>
     where P: AsRef<Path>,
@@ -47,7 +54,7 @@ pub fn path_is_new_r<P>(path: P) -> Result<(), String>
 }
 
 /*
-pub fn result_to_string_error<T>(result: Result<T, dyn ToString>) -> Result<T, String> {
+pub fn rse<T>(result: Result<T, dyn ToString>) -> Result<T, String> {
     match result {
         Ok(t) => Ok(t),
         Err(e) => Err(e.to_string()),
@@ -56,21 +63,21 @@ pub fn result_to_string_error<T>(result: Result<T, dyn ToString>) -> Result<T, S
 */
 
 pub fn file_type_r(entry: &DirEntry) -> Result<FileType, String> {
-    result_to_string_error!(entry.file_type())
+    rse!(entry.file_type())
 }
 
-pub fn is_directory_r<P>(path: P) -> Result<bool, String>
+pub fn path_is_directory_r<P>(path: P) -> Result<bool, String>
     where P: AsRef<Path>,
 {
-    let metadata = result_to_string_error!(path.as_ref().metadata())?;
+    path_exists_r(&path)?;
+    let metadata = rse!(path.as_ref().metadata())?;
     Ok(metadata.is_dir())
 }
 
-
-
-pub fn path_entries<P>(path: P) -> Result<Vec<PathBuf>, String>
+pub fn path_entries_r<P>(path: P) -> Result<Vec<PathBuf>, String>
     where P: AsRef<Path>,
 {
+    path_exists_r(&path)?;
     match fs::read_dir(path) {
         Ok(read_dir) => {
             let mut entries: Vec<PathBuf> = vec![];
@@ -92,24 +99,35 @@ pub fn path_entries<P>(path: P) -> Result<Vec<PathBuf>, String>
     }
 }
 
+pub fn path_file_names_r<P>(path: P) -> Result<Vec<String>, String>
+    where P: AsRef<Path>,
+{
+    path_exists_r(&path)?;
+    let mut file_names = path_entries_r(&path)?.iter()
+        .map(|path_buf| path_file_name_r(path_buf).unwrap())
+        .collect::<Vec<_>>();
+    file_names.sort();
+    Ok(file_names)
+}
+
 pub fn dir_entry_to_naive_date(dir_entry: &DirEntry) -> NaiveDate {
     let date = dir_entry.metadata().unwrap().modified().unwrap();
     let date: DateTime<Local> = chrono::DateTime::from(date);
     NaiveDate::from_ymd(date.year(), date.month(), date.day())
 }
 
-pub fn write_file<P>(path: P, contents: &str)
+pub fn write_file<P>(path: P, contents: &str) -> Result<(), String>
     where P: AsRef<Path>
 {
-    let path_string = path.as_ref().to_str().unwrap().to_string();
-    fs::write(path, contents).expect(&format!("Unable to write file \"{}\".", path_string));
+    path_create_if_necessary_r(&path)?;
+    rse!(fs::write(path, contents))
 }
 
-pub fn read_file_to_string<P>(path: P) -> String
+pub fn read_file_to_string<P>(path: P) -> Result<String, String>
     where P: AsRef<Path>
 {
-    let path_string = path.as_ref().to_str().unwrap().to_string();
-    fs::read_to_string(path).expect(&format!("Unable to read file \"{}\".", path_string))
+    path_exists_r(&path)?;
+    rse!(fs::read_to_string(path))
 }
 
 pub fn path_create_if_necessary_r<P>(path: P) -> Result<(), String>
@@ -130,6 +148,7 @@ pub fn back_up_folder_date_and_number_r<S, D>(path_source: S, path_dest_base: D,
         S: AsRef<Path>,
         D: AsRef<Path>,
 {
+    path_exists_r(&path_source)?;
     let path_dest= path_folder_next_number_r(path_dest_base, prefix, digits)?;
     match copy_folder_to_new_folder(path_source, &path_dest) {
         Ok(()) => Ok(path_dest),
@@ -152,7 +171,7 @@ pub fn copy_folder<S, D>(path_source: S, path_dest: D) -> Result<(), String>
         S: AsRef<Path>,
         D: AsRef<Path>,
 {
-    // path_create_if_necessary_r(&path_dest)?;
+    path_exists_r(&path_source)?;
     copy_folder_recursive(path_source, path_dest)
 }
 
@@ -162,14 +181,15 @@ fn copy_folder_recursive<S, D>(path_source: S, path_dest: D) -> Result<(), Strin
         D: AsRef<Path>,
 {
     // From https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust.
+    path_exists_r(&path_source)?;
     path_create_if_necessary_r(&path_dest)?;
-    for entry in path_entries(&path_source)? {
+    for entry in path_entries_r(&path_source)? {
         let file_name = path_file_name_r(&entry)?;
         let path_dest_one = path_dest.as_ref().join(file_name);
-        if is_directory_r(&entry)? {
+        if path_is_directory_r(&entry)? {
             copy_folder_recursive(entry, path_dest_one)?;
         } else {
-            result_to_string_error!(fs::copy(entry, path_dest_one))?;
+            rse!(fs::copy(entry, path_dest_one))?;
         }
     }
     Ok(())
@@ -178,6 +198,7 @@ fn copy_folder_recursive<S, D>(path_source: S, path_dest: D) -> Result<(), Strin
 pub fn path_folder_highest_number_r<P>(path_base: P, prefix: &str) -> Result<Option<PathBuf>, String>
     where P: AsRef<Path>
 {
+    path_create_if_necessary_r(&path_base)?;
     Ok(folder_highest_number_r(path_base.as_ref(), prefix)?
         .map(|(number, digits)| path_folder_with_number(path_base, prefix, number, digits)))
 }
@@ -185,27 +206,30 @@ pub fn path_folder_highest_number_r<P>(path_base: P, prefix: &str) -> Result<Opt
 pub fn path_folder_next_number_r<P>(path_base: P, prefix: &str, digits: usize) -> Result<PathBuf, String>
     where P: AsRef<Path>
 {
+    path_create_if_necessary_r(&path_base)?;
     let found_highest_number = folder_highest_number_r(path_base.as_ref(), prefix)?.map(|(number, _)| number);
     let next_number = found_highest_number.unwrap_or(0) + 1;
     Ok(path_folder_with_number(path_base, prefix, next_number, digits))
 }
 
-// TO DO: Check whether each entry is really a folder.
 fn folder_highest_number_r<P>(path_base: P, prefix: &str) -> Result<Option<(usize, usize)>, String>
     where P: AsRef<Path>
 {
+    path_exists_r(&path_base)?;
     let prefix = prefix.to_lowercase();
     let mut max_number = None;
     let mut digits = 1;
-    for entry in path_entries(&path_base)? {
-        let folder_name = path_file_name_r(entry)?.to_lowercase();
-        if folder_name.starts_with(&prefix) {
-            let number = after(&folder_name, &prefix).trim();
-            let digits_this_entry = number.len();
-            let number = number.parse::<usize>().unwrap();
-            if number >= max_number.unwrap_or(0) {
-                max_number = Some(number);
-                digits = digits_this_entry;
+    for entry in path_entries_r(&path_base)? {
+        if path_is_directory_r(&entry)? {
+            let folder_name = path_file_name_r(entry)?.to_lowercase();
+            if folder_name.starts_with(&prefix) {
+                let number = after(&folder_name, &prefix).trim();
+                let digits_this_entry = number.len();
+                let number = number.parse::<usize>().unwrap();
+                if number >= max_number.unwrap_or(0) {
+                    max_number = Some(number);
+                    digits = digits_this_entry;
+                }
             }
         }
     }
@@ -215,6 +239,8 @@ fn folder_highest_number_r<P>(path_base: P, prefix: &str) -> Result<Option<(usiz
 fn path_folder_with_number<P>(path_base: P, prefix: &str, number: usize, digits: usize) -> PathBuf
     where P: AsRef<Path>
 {
+    // It's not necessary for the path to exist yet. This function is simply creating a path from
+    // pieces like the prefix and number.
     let folder_name = format!("{} {}", prefix, format_zeros(number, digits));
     let mut path_buf = PathBuf::new();
     path_buf.push(path_base);
@@ -238,6 +264,7 @@ mod tests {
     use super::*;
 
     const PATH_TEST: &str = r"C:\Test_Rust_File_Functions";
+    const FOLDER_WITH_FILES: &str = "Subfolder With Files";
 
     fn setup() {
         if path_exists(PATH_TEST) {
@@ -256,6 +283,32 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn assert_err<T>(result: Result<T, String>) {
+        match result {
+            Ok(_) => panic!("Result was not an error."),
+            Err(_) => (),
+        }
+    }
+
+    fn create_test_folder_with_files() -> (PathBuf, Vec<String>) {
+        let path_folder = [PATH_TEST, FOLDER_WITH_FILES].iter().collect::<PathBuf>();
+        path_is_new_r(&path_folder).unwrap();
+        let mut file_names = vec!["File G.txt", "File R.txt", "File B.txt"];
+        fs::create_dir(&path_folder).unwrap();
+        file_names.iter().for_each(|file_name| fs::write(path_folder.join(file_name), file_name).unwrap());
+        file_names.sort();
+        (path_folder, str_to_string_vector(&file_names))
+    }
+
+    fn add_files_to_test_folder() -> (PathBuf, Vec<String>) {
+        let path_folder = [PATH_TEST, FOLDER_WITH_FILES].iter().collect::<PathBuf>();
+        path_exists_r(&path_folder).unwrap();
+        let file_names = vec!["File 12.txt", "File 08.txt"];
+        file_names.iter().for_each(|file_name| fs::write(path_folder.join(file_name), file_name).unwrap());
+        let file_names = path_file_names_r(&path_folder).unwrap();
+        (path_folder, file_names)
     }
 
     #[test]
@@ -286,6 +339,75 @@ mod tests {
         assert!(path_exists_r(&path).is_ok());
     }
 
+    #[test]
+    fn test_path_is_new_r() {
+        setup();
+        let folder_name = "Subfolder C";
+        let path = [PATH_TEST, folder_name].iter().collect::<PathBuf>();
+        let exp_msg = format!("Path already exists: \"{}\\{}\".", PATH_TEST, folder_name);
+        assert!(path_is_new_r(&path).is_ok());
+        fs::create_dir_all(&path).unwrap();
+        assert_err_msg(path_is_new_r(&path), &exp_msg);
+    }
+
+    #[test]
+    fn test_path_is_directory() {
+        setup();
+        let folder_name = "Subfolder D";
+        let file_name = "File D.txt";
+        let path_folder = [PATH_TEST, folder_name].iter().collect::<PathBuf>();
+        let path_file = path_folder.join(&file_name);
+        let exp_msg = format!("Path already exists: \"{}\\{}\".", PATH_TEST, folder_name);
+        assert_err(path_is_directory_r(&path_folder));
+        assert_err(path_is_directory_r(&path_file));
+
+        fs::create_dir(&path_folder).unwrap();
+        assert!(path_is_directory_r(&path_folder).unwrap());
+        assert_err(path_is_directory_r(&path_file));
+
+        fs::write(&path_file, "File content.").unwrap();
+        assert!(path_is_directory_r(&path_folder).unwrap());
+        assert_eq!(false, path_is_directory_r(&path_file).unwrap());
+    }
+
+    #[test]
+    fn test_path_entries_r() {
+        setup();
+        let (path_folder, exp_file_names) = create_test_folder_with_files();
+        let mut act_file_names = path_entries_r(&path_folder).unwrap().iter()
+            .map(|path_buf| path_file_name_r(path_buf).unwrap())
+            .collect::<Vec<_>>();
+        act_file_names.sort();
+        //bg!(&exp_file_names, &act_file_names);
+        assert_eq!(exp_file_names, act_file_names);
+    }
+
+    #[test]
+    fn test_back_up_folder_date_and_number_r() {
+        setup();
+        let path_missing_folder = [PATH_TEST, "Missing"].iter().collect::<PathBuf>();
+        assert_err(back_up_folder_date_and_number_r(path_missing_folder, PATH_TEST, "Back Red", 3));
+
+        let (path_source_folder, exp_file_names) = create_test_folder_with_files();
+
+        // The destination includes two levels of folders that don't exist yet.
+        let path_dest_base = [PATH_TEST, "Backup", "April"].iter().collect::<PathBuf>();
+
+        let path_dest_folder = back_up_folder_date_and_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
+        let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
+        assert_eq!(exp_file_names, act_file_names);
+        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 001", PATH_TEST);
+        let act_dest_folder_name = path_name(&path_dest_folder);
+        assert_eq!(exp_dest_folder_name, act_dest_folder_name);
+
+        // Add some files to the source and create a second numbered backup.
+        let (_, exp_file_names) = add_files_to_test_folder();
+        let path_dest_folder = back_up_folder_date_and_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
+        dbg!(path_name(&path_dest_folder));
+        let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
+        assert_eq!(exp_file_names, act_file_names);
+        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 002", PATH_TEST);
+        let act_dest_folder_name = path_name(&path_dest_folder);
+        assert_eq!(exp_dest_folder_name, act_dest_folder_name);
+    }
 }
-
-

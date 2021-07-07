@@ -3,6 +3,9 @@
 #![macro_use]
 extern crate titlecase;
 
+pub use std::rc::Rc;
+pub use std::cell::RefCell;
+
 pub mod convert;
 pub mod date_time;
 pub mod extract;
@@ -14,6 +17,8 @@ pub mod log;
 pub mod parse;
 pub mod stats_usize;
 pub mod tree;
+
+pub use format::fc;
 
 // type_name_of() seems to dereference automatically so it can't tell the difference between a basic value and a
 // reference to that value.
@@ -143,6 +148,51 @@ macro_rules! show_size_align {
             )*
         }
     };
+}
+
+// Shorthand for something like Rc::new(RefCell::new(a)).
+#[macro_export]
+// #[macro_use]
+macro_rules! r {
+    ($a:expr)=>{
+    // ($a:ident)=>{
+        {
+            Rc::new(RefCell::new($a))
+        }
+    }
+}
+
+// Shorthand for something like RefCell::borrow(a).
+#[macro_export]
+// #[macro_use]
+macro_rules! b {
+    ($a:expr)=>{
+        {
+            RefCell::borrow($a)
+        }
+    }
+}
+
+// Shorthand for something like RefCell::borrow(&RefCell::borrow(a).some_ref)
+#[macro_export]
+// #[macro_use]
+macro_rules! b2 {
+    ($a:expr, $b:ident)=>{
+        {
+            RefCell::borrow(&RefCell::borrow($a).$b)
+        }
+    }
+}
+
+// Shorthand for something like RefCell::borrow_mut(a).
+#[macro_export]
+// #[macro_use]
+macro_rules! m {
+    ($a:expr)=>{
+        {
+            RefCell::borrow_mut($a)
+        }
+    }
 }
 
 pub fn str_to_string_vector(values: &[&str]) -> Vec<String> {

@@ -13,11 +13,12 @@ use terminal_size::{Width, Height, terminal_size};
 fn main() {
     println!("\nUtil start.\n");
 
-    //gen_bookmarks_for_connectedtext();
-    //try_format_locale();
-    //try_terminal_size();
-    //try_hanging_indent();
-    extract::try_extract_multiple();
+    // gen_bookmarks_for_connectedtext();
+    // try_format_locale();
+    // try_terminal_size();
+    // try_hanging_indent();
+    // extract::try_extract_multiple();
+    parse::try_split_delimited_and_normal_rc();
 
     println!("\nUtil done.\n");
 }

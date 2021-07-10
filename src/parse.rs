@@ -3,6 +3,7 @@ use std::io::{self, BufRead, BufReader};
 use std::collections::btree_map::BTreeMap;
 use glob::{glob_with, MatchOptions};
 use std::fs::File;
+use crate::err_context;
 
 pub fn read_file_as_lines(file_name: &str) -> Vec<String> {
     let file = File::open(file_name).unwrap();
@@ -132,6 +133,10 @@ pub fn between<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str
     rbefore(after(value, pat_before), pat_after)
 }
 
+pub fn between_trim<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
+    between(value, pat_before, pat_after).trim()
+}
+
 pub fn between_optional<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> Option<&'a str> {
     if let Some(before_index) = value.find(pat_before) {
         let just_after_before = before_index + pat_before.len();
@@ -170,6 +175,11 @@ pub fn split_1_or_2<'a>(value: &'a str, pat: &str) -> (&'a str, Option<&'a str>)
     )
 }
 
+pub fn split_1_or_2_trim<'a>(value: &'a str, pat: &str) -> (&'a str, Option<&'a str>) {
+    let split = split_1_or_2(value, pat);
+    (split.0.trim(), split.1.map(|x| x.trim()))
+}
+
 pub fn split_2<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
     assert!(pat.len() > 0);
     let mut split = value.splitn(2, pat);
@@ -177,6 +187,19 @@ pub fn split_2<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
         split.next().expect(&format!("No first split item found for value = \"{}\"", value)),
         split.next().expect(&format!("No second split item found for value = \"{}\"", value))
     )
+}
+
+pub fn split_2_r<'a>(value: &'a str, pat: &str) -> Result<(&'a str, &'a str), String> {
+    assert!(pat.len() > 0);
+    let mut split = value.splitn(2, pat);
+    match (split.next(), split.next()) {
+        (Some(split_0), Some(split_1)) => Ok((split_0, split_1)),
+        _ => Err(format!("Unable to split \"{}\" into two parts using \"{}\"", value, pat)),
+    }
+}
+
+pub fn split_2_rc<'a>(value: &'a str, pat: &str, context: &str) -> Result<(&'a str, &'a str), String> {
+    err_context(split_2_r(value, pat), context)
 }
 
 pub fn split_2_trim<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
@@ -202,6 +225,23 @@ pub fn split_3_two_delimiters<'a>(value: &'a str, pat_1: &str, pat_2: &str) -> (
     (first, second, third)
 }
 
+pub fn split_3_two_delimiters_r<'a>(value: &'a str, pat_1: &str, pat_2: &str) -> Result<(&'a str, &'a str, &'a str), String> {
+    //bg!(value, pat_1, pat_2);
+    let (first, rest) = split_2_r(value, pat_1)?;
+    //bg!(first, rest);
+    let (second, third) = split_2_r(&rest, pat_2)?;
+    //bg!(second, third);
+    Ok((first, second, third))
+}
+
+pub fn split_3_two_delimiters_rc<'a>(value: &'a str, pat_1: &str, pat_2: &str, context: &str) -> Result<(&'a str, &'a str, &'a str), String> {
+    err_context(split_3_two_delimiters_r(value, pat_1, pat_2), context)
+}
+
+pub fn split_trim(value: &str, pat: &str) -> Vec<String> {
+    value.split(pat).map(|x| x.trim().to_string()).collect()
+}
+
 pub fn delimited_entries(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
     let mut v = vec![];
     for s in text.split(left_delimiter).skip(1) {
@@ -215,6 +255,54 @@ pub fn delimited_entries(text: &str, left_delimiter: &str, right_delimiter: &str
 
 pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter: &str) -> Vec<String> {
     trim_string_vector(&delimited_entries(text, left_delimiter, right_delimiter))
+}
+
+pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<(bool, String)>, String> {
+    let err_func = |pos: usize, msg: &str| Err(
+        format!("{} split_delimited_and_normal_rc: pos = {}: {} left = \"{}\", right = \"{}\", text = \"{}\".",
+        context, pos, msg, left_delimiter, right_delimiter, text));
+    let mut v = vec![];
+    let mut pos = 0;
+    while pos < text.len() {
+        let next_left = text[pos..].find(left_delimiter).map(|x| x + pos);
+        let next_right = text[pos..].find(right_delimiter).map(|x| x + pos);
+        match next_left {
+            Some(next_left) => {
+                // We expect that we're seeing a non-delimited substring (which may be zero length)
+                // followed by a delimited substring, then the remainder of the text.
+                // Don't bother adding a non-delimited substring if the text starts with a
+                // delimited substring, that is a left delimiter in position 0, or if there's a new
+                // delimited substring immediately following the last one.
+                if next_left > pos {
+                    v.push((false, text[pos..next_left].to_string()));
+                }
+                // Presumably there's a right delimiter to match the left one.
+                match next_right {
+                    Some(next_right) => {
+                        if next_right < next_left {
+                            return err_func(pos, "Extra right delimiter.");
+                        }
+                        let pos_substring_start = next_left + left_delimiter.len();
+                        v.push((true, text[pos_substring_start..next_right].to_string()));
+                        pos = next_right + right_delimiter.len();
+                    },
+                    None => {
+                        return err_func(pos, "Missing right delimiter.");
+                    },
+                };
+            },
+            None => {
+                // The remainder of the text is assumed to be a non-delimited substring.
+                if next_right.is_some() {
+                    // There's an unexpected delimiter.
+                    return err_func(pos, "Extra right delimiter.");
+                }
+                v.push((false, text[pos..].to_string()));
+                break;
+            }
+        }
+    }
+    Ok(v)
 }
 
 pub fn split_once_with_option(value: &str, delimiter: &str) -> (String, Option<String>) {
@@ -289,6 +377,55 @@ pub fn count_characters(strings: Vec<String>) {
         }
     }
     grouper.print_by_key(0, None);
+}
+
+pub fn remove_zero_width_no_break_space(text: &str) -> String {
+    text.replace("\u{feff}", "")
+}
+
+pub fn try_split_delimited_and_normal_rc() {
+    // Normal case:
+    let context = "Test";
+
+    let text = "ab [[c]]e [[fg ]] hij";
+    let exp = vec![(false, "ab "), (true, "c"), (false, "e "), (true, "fg "), (false, " hij")];
+    let exp = test_split_delimited_exp_to_strings(exp);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", context).unwrap();
+    //bg!(&exp, &act);
+    assert!(exp.eq(&act));
+
+    // Start and end with delimited substrings, and have delimited substrings that touch without
+    // a non-delimited substring between them.
+    let text = "[[ab]][[ c ]]  d [[efg]]";
+    let exp = vec![(true, "ab"), (true, " c "), (false, "  d "), (true, "efg")];
+    let exp = test_split_delimited_exp_to_strings(exp);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", context).unwrap();
+    //bg!(&exp, &act);
+    assert!(exp.eq(&act));
+
+    // Error: Start with a right delimiter.
+    let text = "]]a[[b]]";
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+
+    // Error: Start with a right delimiter, no left delimiters.
+    let text = "]]a";
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+
+    // Error: First right delimiter before first left delimiter.
+    let text = "abc]]a[[b]]";
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+
+    // Error: Right delimiter but no left delimiter.
+    let text = "abc]]a";
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+
+    // Error: Delimited substring doesn't end (no right delimiter).
+    let text = "[[abc]]a[[b]]c[[d";
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+}
+
+fn test_split_delimited_exp_to_strings(v: Vec<(bool, &str)>) -> Vec<(bool, String)> {
+    v.iter().map(|(b, s)| (*b, s.to_string())).collect()
 }
 
 /*

@@ -199,6 +199,8 @@ pub fn str_to_string_vector(values: &[&str]) -> Vec<String> {
     values.iter().map(|value| value.to_string()).collect()
 }
 
+
+
 #[cfg(test)]
 mod tests {
     /*
@@ -209,3 +211,9 @@ mod tests {
     */
 }
 
+pub fn err_context<T>(result: Result<T, String>, context: &str) -> Result<T, String> {
+    match result {
+        Ok(a) => Ok(a),
+        Err(msg) => Err(format!("{} {}", context, msg)),
+    }
+}

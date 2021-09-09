@@ -2,7 +2,7 @@ use std::fs::{DirEntry, FileType};
 use chrono::{NaiveDate, DateTime, Local, Datelike};
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::parse::after;
+use crate::parse::{after, between_trim};
 use crate::format::format_zeros;
 
 use crate::*;
@@ -67,6 +67,14 @@ pub fn path_is_directory_r<P>(path: P) -> Result<bool, String>
     path_exists_r(&path)?;
     let metadata = rse!(path.as_ref().metadata())?;
     Ok(metadata.is_dir())
+}
+
+pub fn path_is_file_r<P>(path: P) -> Result<bool, String>
+    where P: AsRef<Path>,
+{
+    path_exists_r(&path)?;
+    let metadata = rse!(path.as_ref().metadata())?;
+    Ok(metadata.is_file())
 }
 
 pub fn dir_entry_to_naive_date(dir_entry: &DirEntry) -> NaiveDate {
@@ -251,6 +259,77 @@ pub fn back_up_folder_dated_next_number_r<S, D>(path_source: S, path_dest_base: 
     let date_string = date_for_file_name_now();
     let prefix = format!("{} {}", prefix, date_string);
     back_up_folder_next_number_r(path_source, path_dest_base, &prefix, digits)
+}
+
+fn path_file_with_number<P>(path_folder: P, prefix: &str, extension: &str, number: usize, digits: usize) -> PathBuf
+    where P: AsRef<Path>
+{
+    let file_name = format!("{} {}.{}", prefix, format_zeros(number, digits), extension);
+    let mut path_buf = PathBuf::new();
+    path_buf.push(path_folder);
+    path_buf.push(&file_name);
+    path_buf
+}
+
+fn file_highest_number_r<P>(path_folder: P, prefix: &str, extension: &str) -> Result<Option<(usize, usize)>, String>
+    where P: AsRef<Path>
+{
+    let dot_extension = format!(".{}", extension);
+    path_create_if_necessary_r(&path_folder)?;
+    let prefix = prefix.to_lowercase();
+    let mut max_number = None;
+    let mut digits = 1;
+    for entry in path_entries_r(&path_folder)? {
+        if path_is_file_r(&entry)? {
+            let file_name = path_file_name_r(entry)?.to_lowercase();
+            if file_name.starts_with(&prefix) && file_name.ends_with(&dot_extension) {
+                let number = between_trim(&file_name, &prefix, &dot_extension);
+                let digits_this_entry = number.len();
+                let number = number.parse::<usize>().unwrap();
+                if number >= max_number.unwrap_or(0) {
+                    max_number = Some(number);
+                    digits = digits_this_entry;
+                }
+            }
+        }
+    }
+    Ok(max_number.map(|max_number| (max_number, digits)))
+}
+
+pub fn path_file_highest_number_r<P>(path_folder: P, prefix: &str, extension: &str) -> Result<Option<PathBuf>, String>
+    where P: AsRef<Path>
+{
+    path_create_if_necessary_r(&path_folder)?;
+    Ok(file_highest_number_r(path_folder.as_ref(), prefix, extension)?
+        .map(|(number, digits)| path_file_with_number(path_folder, prefix, extension, number, digits)))
+}
+
+pub fn path_file_next_number_r<P>(path_folder: P, prefix: &str, extension: &str, digits: usize) -> Result<PathBuf, String>
+    where P: AsRef<Path>
+{
+    path_create_if_necessary_r(&path_folder)?;
+    let found_highest_number = file_highest_number_r(path_folder.as_ref(), prefix, extension)?.map(|(number, _)| number);
+    let next_number = found_highest_number.unwrap_or(0) + 1;
+    Ok(path_file_with_number(path_folder, prefix, extension, next_number, digits))
+}
+
+pub fn back_up_file_next_number_r<S, D>(path_source_file: S, path_dest_folder: D, prefix: &str, extension: &str, digits: usize) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    path_exists_r(&path_source_file)?;
+    path_create_if_necessary_r(&path_dest_folder)?;
+    let path_dest_file= path_file_next_number_r(path_dest_folder, prefix, extension, digits)?;
+    match std::fs::copy(&path_source_file, &path_dest_file) {
+        Ok(_val) => Ok(()),
+        Err(msg) => {
+            let path_source_name = path_name(&path_source_file);
+            let path_dest_name = path_name(&path_dest_file);
+            let msg = format!("back_up_file_next_number_r: Couldn't copy \"{}\" to \"{}\". Message was \"{}\".", path_source_name, path_dest_name, msg);
+            Err(msg)
+        },
+    }
 }
 
 #[cfg(test)]

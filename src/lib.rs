@@ -14,8 +14,10 @@ pub mod file;
 pub mod group;
 pub mod html;
 pub mod log;
+pub mod math;
 pub mod parse;
 pub mod stats_usize;
+pub mod tab;
 pub mod tree;
 
 pub use format::fc;

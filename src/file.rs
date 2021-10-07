@@ -1,4 +1,4 @@
-use std::fs::{DirEntry, FileType};
+use std::fs::{DirEntry, FileType, File};
 use chrono::{NaiveDate, DateTime, Local, Datelike};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -7,6 +7,8 @@ use crate::format::format_zeros;
 
 use crate::*;
 use crate::date_time::date_for_file_name_now;
+use std::io::{BufReader, Read};
+use itertools::Itertools;
 
 pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
     dir_entry.file_name().to_str().unwrap().to_string()
@@ -330,6 +332,56 @@ pub fn back_up_file_next_number_r<S, D>(path_source_file: S, path_dest_folder: D
             Err(msg)
         },
     }
+}
+
+pub fn remove_bom_characters<S, D>(path_source_file: S, path_dest_file: D)
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    // These are the FF and FE (255 and 254) characters that can appear at the beginning of a file
+    // and lead to:
+    //   InvalidData, error: "stream did not contain valid UTF-8"
+
+    // print_bytes(&path_source_file, 20);
+
+    let mut buffer = Vec::new();
+    {
+        let f = File::open(path_source_file).unwrap();
+        let mut reader = BufReader::new(f);
+        // Read file into vector.
+        reader.read_to_end(&mut buffer).unwrap();
+    }
+
+    let fixed_content = buffer.iter()
+        .filter(|val| **val < 254)
+        .map(|val| *val as char)
+        .join("");
+    write_file(&path_dest_file, &fixed_content).unwrap();
+    // {
+        // let w = File::create(&path_dest_file).unwrap();
+        // let mut writer = BufWriter::new(w);
+        // writer.write_all(&fixed_buffer[..]);
+    // }
+
+    // print_bytes(&path_dest_file, 20);
+}
+
+pub fn print_bytes<F>(path_file: &F, max_byte_count: usize)
+    where F: AsRef<Path>,
+{
+    let f = File::open(path_file).unwrap();
+    let mut reader = BufReader::new(f);
+    let mut buffer = Vec::new();
+
+    // Read file into vector.
+    reader.read_to_end(&mut buffer).unwrap();
+
+    println!("\nprint_bytes() for \"{}\"", path_file_name_r(path_file).unwrap());
+    for value in buffer.iter().take(max_byte_count) {
+        println!("\tBYTE: {}", value);
+    }
+    println!();
 }
 
 #[cfg(test)]

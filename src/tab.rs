@@ -3,6 +3,7 @@ use crate::parse;
 use chrono::NaiveDate;
 
 pub fn cell_as_usize(val: &str) -> usize {
+    let val = clean_cell(val);
     let val_trim = val.replace("\"", "").replace(",", "").trim().to_string();
     if val_trim.is_empty() || val_trim == "-".to_string() || val_trim == "(0)".to_string() {
         0
@@ -25,6 +26,7 @@ pub fn cell_as_usize_opt_no_zero(val: &str) -> Option<usize> {
 }
 
 pub fn cell_as_usize_result(val: &str) -> Result<usize, String> {
+    let val = clean_cell(val);
     let val_trim = val.replace("\"", "").replace(",", "").trim().to_string();
     if val_trim.is_empty() || val_trim == "-".to_string() || val_trim == "(0)".to_string() {
         Ok(0)
@@ -50,21 +52,22 @@ pub fn cell_as_usize_opt_no_zero_result(val: &str) -> Result<Option<usize>, Stri
 }
 
 pub fn cell_as_date(val: &str) -> NaiveDate {
+    let val = clean_cell(val);
     //bg!(val);
     NaiveDate::parse_from_str(val.trim(), "%m/%d/%y").unwrap()
 }
 
 pub fn cell_as_date_optional(val: &str) -> Option<NaiveDate> {
-    let val = val.trim();
+    let val = clean_cell(val);
     if val.is_empty() {
         None
     } else {
-        Some(cell_as_date(val))
+        Some(cell_as_date(&val))
     }
 }
 
 pub fn cell_as_date_result(val: &str) -> Result<NaiveDate, String> {
-    //bg!(val);
+    let val = clean_cell(val);
     match NaiveDate::parse_from_str(val.trim(), "%m/%d/%y") {
         Ok(date) => Ok(date),
         Err(err) => Err(format!("Can't parse \"{}\" as date: {}", val, err.to_string())),
@@ -72,11 +75,11 @@ pub fn cell_as_date_result(val: &str) -> Result<NaiveDate, String> {
 }
 
 pub fn cell_as_date_optional_result(val: &str) -> Result<Option<NaiveDate>, String> {
-    let val = val.trim();
+    let val = clean_cell(val);
     if val.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(cell_as_date_result(val)?))
+        Ok(Some(cell_as_date_result(&val)?))
     }
 }
 
@@ -173,6 +176,7 @@ pub fn cell_as_bool(val: &str) -> bool {
 }
 
 pub fn cell_as_bool_result(val: &str) -> Result<bool, String> {
+    let val = clean_cell(val);
     match val.trim().to_lowercase().as_str() {
         "1" | "t" | "true" | "y" | "yes" => Ok(true),
         "" | "0" | "f" | "false" | "n" | "no" => Ok(false),
@@ -181,7 +185,9 @@ pub fn cell_as_bool_result(val: &str) -> Result<bool, String> {
 }
 
 fn clean_cell(val: &str) -> String {
-    format::remove_surrounding_delimiters(val.trim(), "\"", "\"")
+    let val = val.replace("\u{0}", "");
+    let val = format::remove_surrounding_delimiters(val.trim(), "\"", "\"");
+    val.trim().to_string()
 }
 
 fn clean_number(val: &str) -> String {

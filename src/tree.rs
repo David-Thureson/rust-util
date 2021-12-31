@@ -12,9 +12,9 @@ pub struct Tree<T>
     pub top_nodes: Vec<Rc<RefCell<TreeNode<T>>>>,
     pub node_map: BTreeMap<T, Rc<RefCell<TreeNode<T>>>>,
     pub calc_done: bool,
-    pub height: usize,
-    pub node_count: usize,
-    pub leaf_count: usize,
+    height: usize,
+    node_count: usize,
+    leaf_count: usize,
 }
 
 #[derive(Clone)]
@@ -25,10 +25,10 @@ pub struct TreeNode<T>
     pub item: T,
     pub child_nodes: Vec<Rc<RefCell<TreeNode<T>>>>,
     pub calc_done: bool,
-    pub depth: usize,
-    pub height: usize,
-    pub subtree_node_count: usize,
-    pub subtree_leaf_count: usize,
+    depth: usize,
+    height: usize,
+    subtree_node_count: usize,
+    subtree_leaf_count: usize,
 }
 
 impl <T> Tree<T>
@@ -81,6 +81,10 @@ impl <T> Tree<T>
         }
 
         tree
+    }
+
+    pub fn get_node(&self, key: &T) -> Option<Rc<RefCell<TreeNode<T>>>> {
+        self.node_map.get(key).map(|node_rc| node_rc.clone())
     }
 
     #[inline]

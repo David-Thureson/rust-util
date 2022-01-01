@@ -1,5 +1,5 @@
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref};
 use std::collections::BTreeMap;
 use std::cmp::Reverse;
 use std::fmt::Display;
@@ -200,6 +200,45 @@ impl <T> TreeNode<T>
     pub fn subtree_leaf_count(&self) -> usize {
         assert_calc_done(self.calc_done);
         self.subtree_leaf_count
+    }
+
+    pub fn get_direct_child_nodes<F>(&self, filter_func: &F) -> Vec<Rc<RefCell<Self>>>
+        where F: Fn(Ref<Self>) -> bool
+    {
+        self.child_nodes.iter()
+            .filter(|child_node_rc| filter_func(b!(child_node_rc)))
+            .map(|child_node_rc| child_node_rc.clone())
+            .collect::<Vec<_>>()
+        /*
+        let mut items = vec![];
+        for child_node_rc in self.child_nodes.iter() {
+            let child_node = b!(child_node_rc);
+            if filter_func(&child_node) {
+                items.push(child_node.clone());
+            }
+        }
+        *
+         */
+    }
+
+    pub fn get_direct_child_items<F>(&self, filter_func: &F) -> Vec<T>
+        where F: Fn(Ref<Self>) -> bool
+    {
+        self.child_nodes.iter()
+            .filter(|child_node_rc| filter_func(b!(child_node_rc)))
+            .map(|child_node_rc| b!(child_node_rc).item.clone())
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get_indirect_child_items<F>(&self, filter_func: &F) -> Vec<T>
+        where F: Fn(Ref<Self>) -> bool
+    {
+        let mut items = self.get_direct_child_items(filter_func);
+        for child_node_rc in self.child_nodes.iter() {
+            let mut child_items= b!(child_node_rc).get_indirect_child_items(filter_func);
+            items.append(&mut child_items);
+        }
+        items
     }
 
     fn do_calculations(&mut self) {

@@ -5,6 +5,7 @@ use std::cmp::Reverse;
 use std::fmt::Display;
 
 use crate::*;
+use crate::format::format_count;
 
 pub struct Tree<T>
     where T: Clone + Ord
@@ -34,16 +35,37 @@ pub struct TreeNode<T>
 impl <T> Tree<T>
     where T: Clone + Ord
 {
-    fn new(top_nodes: Vec<Rc<RefCell<TreeNode<T>>>>, node_map: BTreeMap<T, Rc<RefCell<TreeNode<T>>>>) -> Self {
-        Self {
+    fn new(top_nodes: Vec<Rc<RefCell<TreeNode<T>>>>, node_map: BTreeMap<T, Rc<RefCell<TreeNode<T>>>>, do_calculations: bool) -> Self {
+        let mut tree = Self {
             top_nodes,
             node_map,
             calc_done: false,
             height: 0,
             node_count: 0,
             leaf_count: 0,
+        };
+        if do_calculations {
+            tree.do_calculations();
         }
+        tree
     }
+
+    /*
+    fn new_from_nodes(mut nodes: Vec<TreeNode<T>>, do_calculations: bool) -> Self {
+        let mut top_nodes = vec![];
+        let mut node_map= BTreeMap::new();
+        for node in nodes.drain(..) {
+            let item = node.item.clone();
+            let is_top_node = node.parent.is_none();
+            let node_rc = r!(node);
+            if is_top_node {
+                top_nodes.push(node_rc.clone());
+            }
+            node_map.insert(item, node_rc);
+        }
+        Self::new(top_nodes, node_map, do_calculations)
+    }
+     */
 
     pub fn create(pairs: Vec<(T, T)>, do_calculations: bool) -> Self {
         let mut node_map: BTreeMap<T, Rc<RefCell<TreeNode<T>>>> = BTreeMap::new();
@@ -74,18 +96,36 @@ impl <T> Tree<T>
                 top_nodes.push(node_rc.clone());
             });
 
-        let mut tree = Self::new(top_nodes, node_map);
-
-        if do_calculations {
-            tree.do_calculations();
-        }
-
-        tree
+        Self::new(top_nodes, node_map, do_calculations)
     }
 
     pub fn get_node(&self, key: &T) -> Option<Rc<RefCell<TreeNode<T>>>> {
         self.node_map.get(key).map(|node_rc| node_rc.clone())
     }
+
+    pub fn sort_recursive<F>(&mut self, f: &F)
+        where F: Fn(&Rc<RefCell<TreeNode<T>>>,) -> String,
+    {
+        self.top_nodes.sort_by_cached_key(f);
+        for top_node_rc in self.top_nodes.iter_mut() {
+            m!(top_node_rc).sort_child_nodes_recursive(f);
+        }
+    }
+
+    /*
+    pub fn filter<F>(&self, filter_func: &F) -> Tree<T>
+        where F: Fn(&Ref<TreeNode<T>>) -> bool
+    {
+        // let mut top_nodes = vec![];
+        // let mut node_map = BTreeMap::new();
+        let mut new_nodes = vec![];
+        for top_node_rc in self.top_nodes.iter() {
+            TreeNode::add_filtered( &mut new_nodes, None,b!(top_node_rc), filter_func);
+        }
+        let tree = Self::new_from_nodes(new_nodes, true);
+        tree
+    }
+    */
 
     #[inline]
     pub fn height(&self) -> usize {
@@ -114,6 +154,46 @@ impl <T> Tree<T>
         self.node_count = self.top_nodes.iter().map(|node_rc| b!(node_rc).subtree_node_count).sum();
         self.leaf_count = self.top_nodes.iter().map(|node_rc| b!(node_rc).subtree_leaf_count).sum();
         self.calc_done = true;
+    }
+
+    pub fn max_depth_for_max_count(&self, max_count: usize) -> usize {
+        // Start with the largest depth of the tree.
+        let mut depth = self.height - 1;
+        // The worst case is to return a depth of zero, meaning only the top-level nodes. Do this
+        // even if there are more top-level nodes than max_count.
+        while depth > 0 && self.count_to_depth(depth) > max_count {
+            depth -= 1;
+        }
+        depth
+    }
+
+    fn count_to_depth(&self, max_depth: usize) -> usize {
+        let mut count = 0;
+        for top_node_rc in self.top_nodes.iter() {
+            count += b!(top_node_rc).count_to_depth(max_depth);
+        }
+        count
+    }
+
+    pub fn unroll_to_depth(&self, max_depth: usize) -> Vec<Rc<RefCell<TreeNode<T>>>> {
+        let mut list = vec![];
+        for top_node_rc in self.top_nodes.iter() {
+            b!(top_node_rc).add_child_nodes_to_unroll_to_depth(&mut list, max_depth);
+        }
+        list
+    }
+
+    pub fn description_line(&self) -> String {
+        format!("util::tree::Tree: top_nodes size = {}, node_map size = {}, height = {}, node_count = {}, leaf_count = {}",
+            format_count(self.top_nodes.len()), format_count(self.node_map.len()),
+                format_count(self.height), format_count(self.node_count), format_count(self.leaf_count))
+    }
+
+    pub fn print_counts_to_depth(&self) {
+        println!("\n{}", self.description_line());
+        for depth in 0..self.height {
+            println!("Depth {}: node count = {}", depth, format_count(self.count_to_depth(depth)));
+        }
     }
 }
 
@@ -150,6 +230,12 @@ impl <T> Tree<T>
             });
     }
 
+    pub fn print_with_items(&self, max_depth: Option<usize>) {
+        println!("\n{}", self.description_line());
+        for top_node_rc in self.top_nodes.iter() {
+            b!(top_node_rc).print_with_items(max_depth);
+        }
+    }
 }
 
 impl <T> TreeNode<T>
@@ -241,6 +327,98 @@ impl <T> TreeNode<T>
         items
     }
 
+    pub fn get_subtree_filtered<F>(&self, filter_func: &F) -> Tree<T>
+        where F: Fn(Ref<Self>) -> bool
+    {
+        let mut pairs = vec![];
+        // The tree is made from a collection of pairs of parent-child relationships. It's not
+        // really designed for trees consisting of isolated nodes. So if there are no child nodes,
+        // leave the tree empty.
+        if !self.child_nodes.is_empty() {
+            // let self_ref = Ref::try_from(self).unwrap();
+            // This is a convoluted way of getting a Ref<> of the current node.
+            let first_child_node = b!(&self.child_nodes[0]);
+            let self_ref = b!(&first_child_node.parent.as_ref().unwrap());
+            // If the current node doesn't pass the filter, the subtree will be empty.
+            if filter_func(self_ref) {
+                self.add_child_nodes_to_subtree_filtered(&mut pairs, filter_func);
+            }
+        }
+        let subtree = Tree::create(pairs, true);
+        subtree
+    }
+
+    fn add_child_nodes_to_subtree_filtered<F>(&self, pairs: &mut Vec<(T, T)>, filter_func: &F)
+        where F: Fn(Ref<Self>) -> bool
+    {
+        // We've already established that the current node passes the filter.
+        for child_node_rc in self.child_nodes.iter() {
+            if filter_func(b!(child_node_rc)) {
+                // The child node passes the filter, so add the parent/child pair.
+                let child_item = b!(child_node_rc).item.clone();
+                pairs.push((self.item.clone(), child_item));
+                b!(child_node_rc).add_child_nodes_to_subtree_filtered(pairs, filter_func);
+            }
+        }
+    }
+
+    /*
+    fn add_filtered<F>(new_nodes: &mut Vec<Self>, new_parent_rc: Option<Rc<RefCell<TreeNode<T>>>>, source_node_ref: Ref<Self>, filter_func: &F)
+        where F: Fn(&Ref<Self>) -> bool
+    {
+        if filter_func(&source_node_ref) {
+            let new_node = Self::new(new_parent_rc,source_node_ref.item.clone());
+            let new_node_rc = r!(new_node);
+            for child_node_rc in source_node_ref.child_nodes.iter() {
+                Self::add_filtered(new_nodes,Some(new_node_rc.clone()), b!(child_node_rc), filter_func);
+            }
+            new_nodes.push(new_node);
+        }
+    }
+    */
+
+    fn count_to_depth(&self, max_depth: usize) -> usize {
+        // We shouldn't have gotten here if we're already past the max depth.
+        debug_assert!(self.depth <= max_depth);
+        let mut count = 1;
+        if self.depth < max_depth {
+            for child_node_rc in self.child_nodes.iter() {
+                count += b!(child_node_rc).count_to_depth(max_depth);
+            }
+        }
+        count
+    }
+
+    pub fn unroll_to_depth(&self, max_depth: usize, self_rc: Rc<RefCell<Self>>) -> Vec<Rc<RefCell<Self>>> {
+        let mut list = vec![];
+        if self.depth <= max_depth {
+            list.push(self_rc);
+            if max_depth > self.depth {
+                self.add_child_nodes_to_unroll_to_depth(&mut list, max_depth);
+            }
+        }
+        list
+    }
+
+    fn add_child_nodes_to_unroll_to_depth(&self, list: &mut Vec<Rc<RefCell<Self>>>, max_depth: usize) {
+        debug_assert!(max_depth > self.depth);
+        for child_rc in self.child_nodes.iter() {
+            list.push(child_rc.clone());
+            if max_depth > self.depth + 1 {
+                b!(child_rc).add_child_nodes_to_unroll_to_depth(list, max_depth);
+            }
+        }
+    }
+
+    pub fn sort_child_nodes_recursive<F>(&mut self, f: &F)
+        where F: Fn(&Rc<RefCell<TreeNode<T>>>,) -> String,
+    {
+        self.child_nodes.sort_by_cached_key(f);
+        for child_node_rc in self.child_nodes.iter_mut() {
+            m!(child_node_rc).sort_child_nodes_recursive(f);
+        }
+    }
+
     fn do_calculations(&mut self) {
         assert!(!self.calc_done, "do_calculations() called twice.");
         self.depth = self.calc_depth();
@@ -286,6 +464,11 @@ impl <T> TreeNode<T>
                 .sum()
         }
     }
+
+    pub fn description_line(&self) -> String {
+        format!("depth = {}, height = {}, child nodes = {}, subtree nodes = {}, subtree leaves = {}",
+                self.depth, self.height, self.child_count(), self.subtree_node_count(), self.subtree_leaf_count)
+    }
 }
 
 impl <T> TreeNode<T>
@@ -304,10 +487,25 @@ impl <T> TreeNode<T>
     fn report_by_node_count_one(&self) {
         assert_calc_done(self.calc_done);
         let depth = self.depth;
-        let line = format!("{}: depth = {}, height = {}, child nodes = {}, subtree nodes = {}, subtree leaves = {}", self.item, self.depth, self.height, self.child_count(), self.subtree_node_count(), self.subtree_leaf_count);
+        let line = self.description_line_with_item();
         crate::format::println_indent_tab(depth, &line);
         let list = self.child_nodes.clone();
         Tree::report_by_node_count_list(list);
+    }
+
+    pub fn description_line_with_item(&self) -> String {
+        format!("{}: {}", self.item, self.description_line())
+    }
+
+    fn print_with_items(&self, max_depth: Option<usize>) {
+        let depth = self.depth;
+        let line = self.description_line_with_item();
+        crate::format::println_indent_tab(depth, &line);
+        if max_depth.map_or(true, |max_depth| self.depth < max_depth) {
+            for child_node_rc in self.child_nodes.iter() {
+                b!(child_node_rc).print_with_items(max_depth);
+            }
+        }
     }
 
 }

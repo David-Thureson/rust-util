@@ -157,6 +157,7 @@ impl <T> Tree<T>
     }
 
     pub fn max_depth_for_max_count(&self, max_count: usize) -> usize {
+        assert_calc_done(self.calc_done);
         // Start with the largest depth of the tree.
         let mut depth = self.height - 1;
         // The worst case is to return a depth of zero, meaning only the top-level nodes. Do this
@@ -175,9 +176,11 @@ impl <T> Tree<T>
         count
     }
 
-    pub fn unroll_to_depth(&self, max_depth: usize) -> Vec<Rc<RefCell<TreeNode<T>>>> {
+    pub fn unroll_to_depth(&self, max_depth: Option<usize>) -> Vec<Rc<RefCell<TreeNode<T>>>> {
+        assert_calc_done(self.calc_done);
         let mut list = vec![];
         for top_node_rc in self.top_nodes.iter() {
+            list.push(top_node_rc.clone());
             b!(top_node_rc).add_child_nodes_to_unroll_to_depth(&mut list, max_depth);
         }
         list
@@ -185,11 +188,12 @@ impl <T> Tree<T>
 
     pub fn description_line(&self) -> String {
         format!("util::tree::Tree: top_nodes size = {}, node_map size = {}, height = {}, node_count = {}, leaf_count = {}",
-            format_count(self.top_nodes.len()), format_count(self.node_map.len()),
+                format_count(self.top_nodes.len()), format_count(self.node_map.len()),
                 format_count(self.height), format_count(self.node_count), format_count(self.leaf_count))
     }
 
     pub fn print_counts_to_depth(&self) {
+        assert_calc_done(self.calc_done);
         println!("\n{}", self.description_line());
         for depth in 0..self.height {
             println!("Depth {}: node count = {}", depth, format_count(self.count_to_depth(depth)));
@@ -377,6 +381,17 @@ impl <T> TreeNode<T>
     }
     */
 
+    pub fn max_depth_for_max_count(&self, max_count: usize) -> usize {
+        assert_calc_done(self.calc_done);
+        // Start with the largest depth of the subtree.
+        let mut depth = (self.depth + self.height) - 1;
+        // The worst case is to return the current depth, meaning only the current node.
+        while depth > self.depth && self.count_to_depth(depth) > max_count {
+            depth -= 1;
+        }
+        depth
+    }
+
     fn count_to_depth(&self, max_depth: usize) -> usize {
         // We shouldn't have gotten here if we're already past the max depth.
         debug_assert!(self.depth <= max_depth);
@@ -389,22 +404,54 @@ impl <T> TreeNode<T>
         count
     }
 
-    pub fn unroll_to_depth(&self, max_depth: usize, self_rc: Rc<RefCell<Self>>) -> Vec<Rc<RefCell<Self>>> {
+    pub fn max_depth_for_max_count_filtered<F>(&self, max_count: usize, filter_func: &F) -> usize
+        where F: Fn(Ref<Self>) -> bool
+    {
+        assert_calc_done(self.calc_done);
+        // Start with the largest depth of the subtree.
+        let mut depth = (self.depth + self.height) - 1;
+        // The worst case is to return the current depth, meaning only the current node.
+        while depth > self.depth && self.count_to_depth_filtered(depth, filter_func) > max_count {
+            depth -= 1;
+        }
+        depth
+    }
+
+    fn count_to_depth_filtered<F>(&self, max_depth: usize, filter_func: &F) -> usize
+        where F: Fn(Ref<Self>) -> bool
+    {
+        // We shouldn't have gotten here if we're already past the max depth.
+        debug_assert!(self.depth <= max_depth);
+        let mut count = 1;
+        if self.depth < max_depth {
+            for child_node_rc in self.child_nodes.iter() {
+                if filter_func(b!(child_node_rc)) {
+                    count += b!(child_node_rc).count_to_depth_filtered(max_depth, filter_func);
+                }
+            }
+        }
+        count
+    }
+
+    pub fn unroll_to_depth(&self, max_depth: Option<usize>, self_rc: Option<Rc<RefCell<Self>>>) -> Vec<Rc<RefCell<Self>>> {
+        assert_calc_done(self.calc_done);
         let mut list = vec![];
-        if self.depth <= max_depth {
-            list.push(self_rc);
-            if max_depth > self.depth {
+        if max_depth.map_or(true, |max_depth| max_depth >= self.depth) {
+            if let Some(self_rc) = self_rc {
+                list.push(self_rc);
+            }
+            if max_depth.map_or(true, |max_depth| max_depth > self.depth) {
                 self.add_child_nodes_to_unroll_to_depth(&mut list, max_depth);
             }
         }
         list
     }
 
-    fn add_child_nodes_to_unroll_to_depth(&self, list: &mut Vec<Rc<RefCell<Self>>>, max_depth: usize) {
-        debug_assert!(max_depth > self.depth);
+    fn add_child_nodes_to_unroll_to_depth(&self, list: &mut Vec<Rc<RefCell<Self>>>, max_depth: Option<usize>) {
+        // We're asssuming that the current node is within the max depth.
         for child_rc in self.child_nodes.iter() {
             list.push(child_rc.clone());
-            if max_depth > self.depth + 1 {
+            if max_depth.map_or(true, |max_depth| max_depth > self.depth + 1) {
                 b!(child_rc).add_child_nodes_to_unroll_to_depth(list, max_depth);
             }
         }

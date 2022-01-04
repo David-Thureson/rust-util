@@ -1,11 +1,9 @@
 use num_format::{Locale, ToFormattedStr, ToFormattedString};
 use std::fmt::Display;
-use std::time::{Instant, SystemTime};
 use itertools::Itertools;
 use textwrap;
 
 use super::parse;
-use chrono::{DateTime, Local, NaiveDate};
 
 //const ACRONYMS: [&str; 1] = ["TV"];
 
@@ -35,21 +33,6 @@ pub fn format_indent_line_tab(depth: usize, line: &str) -> String {
 
 pub fn println_indent_tab(depth: usize, line: &str) {
     println!("{}", format_indent_tab(depth, line));
-}
-
-pub fn print_elapsed<F>(display: bool, case_label: &str, step_label: &str, mut f: F)
-    where
-        F: FnMut() -> (),
-{
-    let start = Instant::now();
-    f();
-    print_elapsed_from_start(display, case_label, step_label, start);
-}
-
-pub fn print_elapsed_from_start(display: bool, case_label: &str, step_label: &str, start: Instant) {
-    if display {
-        println!("\n{}: {} = {:?}", case_label, step_label, start.elapsed());
-    }
 }
 
 /*
@@ -121,26 +104,6 @@ pub fn list_of_counts_indexed<T>(vals: &[T]) -> String
 {
     vals.iter().enumerate()
         .map(|(index, x)| format!("[{}] {}", format_count(index), format_count_ref(x))).join(" ")
-}
-
-pub fn datetime_as_date(value: &DateTime<Local>) -> String {
-    value.format("%Y-%m-%d").to_string()
-}
-
-pub fn datetime(value: &DateTime<Local>) -> String {
-    value.format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
-pub fn systemtime_as_date(value: &SystemTime) -> String {
-    datetime_as_date(&DateTime::<Local>::from(*value))
-}
-
-pub fn systemtime(value: &SystemTime) -> String {
-    datetime(&DateTime::<Local>::from(*value))
-}
-
-pub fn format_naive_date_sortable(value: &NaiveDate) -> String {
-    value.format("%Y-%m-%d").to_string()
 }
 
 // Return the value passed. This is used to show whether a function call is eager- or

@@ -6,6 +6,7 @@ extern crate titlecase;
 pub use std::rc::Rc;
 pub use std::cell::RefCell;
 
+pub mod bool;
 pub mod convert;
 pub mod date_time;
 pub mod extract;
@@ -15,6 +16,7 @@ pub mod group;
 pub mod html;
 pub mod log;
 pub mod math;
+pub mod number;
 pub mod parse;
 pub mod stats_usize;
 pub mod tab;

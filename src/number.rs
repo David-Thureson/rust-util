@@ -4,3 +4,4 @@ pub fn usize_from_string(value: &str) -> Result<usize, String> {
         Err(err) => Err(format!("Error trying to parse \"{}\" as a usize: \"{}\".", value, err)),
     }
 }
+

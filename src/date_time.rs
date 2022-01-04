@@ -2,6 +2,7 @@
 
 use chrono::{NaiveDate, DateTime, Local, Datelike};
 use std::time::{SystemTime, Instant};
+use std::collections::BTreeMap;
 
 const FORMAT_DATE_SORTABLE: &str = "%Y-%m-%d";  // Like "2022-01-03".
 const FORMAT_DATE_COMPACT: &str = "%Y%m%d";  // Like "20220103".
@@ -51,6 +52,12 @@ pub fn naive_date_to_doc_format(date: &NaiveDate) -> String {
     date.format(FORMAT_DATE_DOC).to_string()
 }
 
+// Like "2022-Jan".
+pub fn year_month_to_doc_format(year: i32, month: u32) -> String {
+    let date = NaiveDate::from_ymd(year, month, 1);
+    naive_date_to_doc_format(&date)[..8].to_string()
+}
+
 // Like "2022-Jan-03".
 pub fn naive_date_from_doc_format(value: &str) -> Result<NaiveDate, String> {
     match NaiveDate::parse_from_str(value.trim(), FORMAT_DATE_DOC) {
@@ -88,5 +95,28 @@ pub fn print_elapsed_from_start(display: bool, case_label: &str, step_label: &st
     if display {
         println!("\n{}: {} = {:?}", case_label, step_label, start.elapsed());
     }
+}
+
+pub fn year_map(mut dates: Vec<NaiveDate>) -> BTreeMap<i32, Vec<NaiveDate>> {
+    dates.sort();
+    dates.dedup();
+    let mut map = BTreeMap::new();
+    for date in dates.drain(..) {
+        let entry = map.entry(date.year()).or_insert(vec![]);
+        entry.push(date);
+    }
+    map
+}
+
+pub fn year_month_map(mut dates: Vec<NaiveDate>) -> BTreeMap<i32, BTreeMap<u32, Vec<NaiveDate>>> {
+    dates.sort();
+    dates.dedup();
+    let mut map = BTreeMap::new();
+    for date in dates.drain(..) {
+        let year_entry = map.entry(date.year()).or_insert(BTreeMap::new());
+        let month_entry = year_entry.entry(date.month()).or_insert(vec![]);
+        month_entry.push(date);
+    }
+    map
 }
 

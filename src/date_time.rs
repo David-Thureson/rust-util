@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 const FORMAT_DATE_SORTABLE: &str = "%Y-%m-%d";  // Like "2022-01-03".
 const FORMAT_DATE_COMPACT: &str = "%Y%m%d";  // Like "20220103".
 const FORMAT_DATE_DOC: &str = "%Y-%b-%d"; // Like "2022-Jan-03".
+const FORMAT_DATE_MON: &str = "%b %-d, %Y"; // Like "Jan 3, 2022".
 
 pub fn naive_date_now() -> NaiveDate {
     let date_time: DateTime<Local> = Local::now();
@@ -52,10 +53,22 @@ pub fn naive_date_to_doc_format(date: &NaiveDate) -> String {
     date.format(FORMAT_DATE_DOC).to_string()
 }
 
+// Like "Jan 3, 2022".
+pub fn naive_date_to_mon_format(date: &NaiveDate) -> String {
+    date.format(FORMAT_DATE_MON).to_string()
+}
+
 // Like "2022-Jan".
 pub fn year_month_to_doc_format(year: i32, month: u32) -> String {
     let date = NaiveDate::from_ymd(year, month, 1);
     naive_date_to_doc_format(&date)[..8].to_string()
+}
+
+// Like "Jan, 2022".
+pub fn year_month_to_mon_format(year: i32, month: u32) -> String {
+    let date = NaiveDate::from_ymd(year, month, 1);
+    let mon = &naive_date_to_mon_format(&date)[..3];
+    format!("{}, {}", mon, year)
 }
 
 // Like "2022-Jan-03".

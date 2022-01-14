@@ -53,6 +53,27 @@ pub fn naive_date_to_doc_format(date: &NaiveDate) -> String {
     date.format(FORMAT_DATE_DOC).to_string()
 }
 
+// Like "2022-Jan-03".
+pub fn naive_date_from_doc_format(value: &str) -> Result<NaiveDate, String> {
+    match NaiveDate::parse_from_str(value.trim(), FORMAT_DATE_DOC) {
+        Ok(date) => Ok(date),
+        Err(err) => Err(format!("Error trying to parse \"{}\" as a doc-format date which should look like \"2022-Jan-03\": \"{}\".", value, err)),
+    }
+}
+
+pub fn naive_date_from_multiple_formats(value: &str) -> Result<NaiveDate, String> {
+    match naive_date_from_sortable_format(value) {
+        Ok(date) => Ok(date),
+        Err(..) => match naive_date_from_compact_format(value) {
+            Ok(date) => Ok(date),
+            Err(..) => match naive_date_from_doc_format(value) {
+                Ok(date) => Ok(date),
+                Err(..) => Err(format!("Error trying to parse \"{}\" as a date using multiple formats.", value)),
+            }
+        }
+    }
+}
+
 // Like "Jan 3, 2022".
 pub fn naive_date_to_mon_format(date: &NaiveDate) -> String {
     date.format(FORMAT_DATE_MON).to_string()
@@ -69,14 +90,6 @@ pub fn year_month_to_mon_format(year: i32, month: u32) -> String {
     let date = NaiveDate::from_ymd(year, month, 1);
     let mon = &naive_date_to_mon_format(&date)[..3];
     format!("{}, {}", mon, year)
-}
-
-// Like "2022-Jan-03".
-pub fn naive_date_from_doc_format(value: &str) -> Result<NaiveDate, String> {
-    match NaiveDate::parse_from_str(value.trim(), FORMAT_DATE_DOC) {
-        Ok(date) => Ok(date),
-        Err(err) => Err(format!("Error trying to parse \"{}\" as a doc-format date which should look like \"2022-Jan-03\": \"{}\".", value, err)),
-    }
 }
 
 pub fn datetime_as_date(value: &DateTime<Local>) -> String {

@@ -4,6 +4,7 @@ use std::collections::btree_map::BTreeMap;
 use glob::{glob_with, MatchOptions};
 use std::fs::File;
 use crate::err_context;
+use itertools::Itertools;
 
 pub fn read_file_as_lines(file_name: &str) -> Vec<String> {
     let file = File::open(file_name).unwrap();
@@ -211,8 +212,8 @@ pub fn rsplit_2<'a>(value: &'a str, pat: &str) -> (&'a str, &'a str) {
     assert!(pat.len() > 0);
     let mut split = value.rsplitn(2, pat);
     (
-        split.next().expect(&format!("No first split item found for value = \"{}\"", value)),
-        split.next().expect(&format!("No second split item found for value = \"{}\"", value))
+        split.next().expect(&format!("No first (rightmost) split item found for value = \"{}\"", value)),
+        split.next().expect(&format!("No second (leftmost) split item found for value = \"{}\"", value))
     )
 }
 
@@ -303,6 +304,48 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
         }
     }
     Ok(v)
+}
+
+pub fn replace_within_delimiters_rc(text: &str, left_delimiter: &str, right_delimiter: &str, from: &str, to: &str, context: &str) -> Result<String, String> {
+    // Replace one substring with another, but only within the parts of the text that are between
+    // certain delimiters. This is used when we want to do something with those "from" substrings
+    // only where they don't appear between the delimiters.
+    // For example, here the pipe characters with spaces around them are considered cell
+    // separators, but the pipes within the bracketed links separate the link destination from the
+    // label, a completely separate meaning:
+    //   | [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |
+    // So we call this function and replace the pipes inside the brackets with a placeholder:
+    //   | [[tools:nav:attributes#Narrator{{{pipe}}}Narrator]] | [[tools:nav:attribute_values#Mark Steinberg{{{pipe}}}Mark Steinberg]] |
+    // and now we can easily count or split on the pipes that are cell separators.
+    let delimited_splits = split_delimited_and_normal_rc(text, left_delimiter, right_delimiter, context)?;
+    let new_text = delimited_splits.iter()
+        .map(|(split_is_delimited, split_text)| if *split_is_delimited {
+            // Put the left and right delimiters back, and do the replacement.
+            format!("{}{}{}", left_delimiter, split_text.replace(from, to), right_delimiter)
+        } else {
+            split_text.clone()
+        })
+        .join("");
+    Ok(new_text)
+}
+
+pub fn split_outside_of_delimiters_rc(text: &str, split_delimiter: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<String>, String> {
+    // Split based on a delimiter, but ignore cases where that split delimiter appears inside some
+    // other delimiters.
+    // For example, here the pipe characters with spaces around them are considered cell
+    // separators, but the pipes within the bracketed links separate the link destination from the
+    // label, a completely separate meaning:
+    //   | [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |
+    // We want to split the cells on the pipe characters, ignoring those pipe characters that
+    // appear inside the bracketed parts.
+    let placeholder = "{{{split_outside_of_delimiters}}}";
+    // Replace the split delimiters we don't want to split on with a placeholder.
+    let temp_with_replacements = replace_within_delimiters_rc(text, left_delimiter, right_delimiter, split_delimiter, placeholder, context)?;
+    // Split on the remaining split delimiters, then put back the ones we took out earlier.
+    let splits = temp_with_replacements.split(split_delimiter).into_iter()
+        .map(|split| split.replace(placeholder, split_delimiter))
+        .collect::<Vec<_>>();
+    Ok(splits)
 }
 
 pub fn split_once_with_option(value: &str, delimiter: &str) -> (String, Option<String>) {
@@ -428,11 +471,11 @@ fn test_split_delimited_exp_to_strings(v: Vec<(bool, &str)>) -> Vec<(bool, Strin
     v.iter().map(|(b, s)| (*b, s.to_string())).collect()
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /*
     #[test]
     fn test_split_1_or_2() {
         assert_eq!(("abc", Some("def")), split_1_or_2("abc..def", ".."));
@@ -565,6 +608,24 @@ mod tests {
         assert_eq!("abc", unquote("  abc "));
         assert_eq!("\" abc   \"\"", unquote(" \"\" abc   \"\"\""));
     }
+    */
 
+    #[test]
+    fn test_replace_within_delimiters_rc() {
+        let context = "test_replace_within_delimiters_rc";
+        let text = "| [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |";
+        let exp = "| [[tools:nav:attributes#Narrator{{{pipe}}}Narrator]] | [[tools:nav:attribute_values#Mark Steinberg{{{pipe}}}Mark Steinberg]] |";
+        let act = replace_within_delimiters_rc(text, "[[", "]]", "|", "{{{pipe}}}", context).unwrap();
+        assert_eq!(exp, act);
+    }
+
+    #[test]
+    fn test_split_outside_of_delimiters_rc() {
+        let context = "test_split_outside_of_delimiters_rc";
+        let text = "| [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |";
+        let exp = "~ [[tools:nav:attributes#Narrator|Narrator]] ~ [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] ~";
+        let splits = split_outside_of_delimiters_rc(text, "|", "[[", "]]", context).unwrap();
+        let act = splits.iter().join("~");
+        assert_eq!(exp, act);
+    }
 }
- */

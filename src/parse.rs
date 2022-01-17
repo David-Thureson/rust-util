@@ -259,6 +259,8 @@ pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter:
 }
 
 pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<(bool, String)>, String> {
+    // let debug = text.contains("Happier");
+    // if debug { //bg!(text, left_delimiter, right_delimiter, context); }
     let err_func = |pos: usize, msg: &str| Err(
         format!("{} split_delimited_and_normal_rc: pos = {}: {} left = \"{}\", right = \"{}\", text = \"{}\".",
         context, pos, msg, left_delimiter, right_delimiter, text));
@@ -266,7 +268,22 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
     let mut pos = 0;
     while pos < text.len() {
         let next_left = text[pos..].find(left_delimiter).map(|x| x + pos);
-        let next_right = text[pos..].find(right_delimiter).map(|x| x + pos);
+        let next_right = if left_delimiter == right_delimiter {
+            // The left and right delimiters are the same, so we have to assume that the first
+            // delimiter found is the left one, and the right delimiter can only be sought after
+            // that left delimiter.
+            if text.len() - 1 > pos {
+                text[pos + 1..].find(right_delimiter).map(|x| x + pos + 1)
+            } else {
+                // There are no characters after pos.
+                None
+            }
+        } else {
+            // The left and right delimiters are different, so we don't have to be as precise about
+            // where to look.
+            text[pos..].find(right_delimiter).map(|x| x + pos)
+        };
+        // if debug { println!("\nTop of loop:"); //bg!(pos, next_left, next_right); }
         match next_left {
             Some(next_left) => {
                 // We expect that we're seeing a non-delimited substring (which may be zero length)
@@ -284,6 +301,7 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
                             return err_func(pos, "Extra right delimiter.");
                         }
                         let pos_substring_start = next_left + left_delimiter.len();
+                        // if debug { //bg!(pos_substring_start); }
                         v.push((true, text[pos_substring_start..next_right].to_string()));
                         pos = next_right + right_delimiter.len();
                     },
@@ -405,8 +423,6 @@ pub fn get_files_ci(path: &path::Path, wildcard: &str) -> Result<Vec<path::PathB
         .map(|result| result.unwrap())
         .collect())
 }
-
-
 
 pub fn digits_only(value: &str) -> String {
     value.chars().filter(|char| char.is_digit(10)).collect()

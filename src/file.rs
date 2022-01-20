@@ -169,6 +169,17 @@ pub fn copy_folder_recursive_r<S, D>(path_source: S, path_dest: D) -> Result<(),
     Ok(())
 }
 
+pub fn copy_folder_recursive_overwrite_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    if path_exists(&path_dest) {
+        fs::remove_dir_all(&path_dest).unwrap();
+    }
+    copy_folder_recursive_r(path_source, path_dest)
+}
+
 pub fn copy_folder_to_new_folder_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
     where
         S: AsRef<Path>,

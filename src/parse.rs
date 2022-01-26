@@ -438,6 +438,22 @@ pub fn count_characters(strings: Vec<String>) {
     grouper.print_by_key(0, None);
 }
 
+pub fn count_leading_character(value: &str, char: char) -> usize {
+    let mut count = 0;
+    for c in value.chars() {
+        if c == char {
+            count += 1;
+        } else {
+            return count;
+        }
+    }
+    count
+}
+
+pub fn count_leading_spaces(value: &str) -> usize {
+    count_leading_character(value, ' ')
+}
+
 pub fn remove_zero_width_no_break_space(text: &str) -> String {
     text.replace("\u{feff}", "")
 }

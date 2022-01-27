@@ -450,8 +450,44 @@ pub fn count_leading_character(value: &str, char: char) -> usize {
     count
 }
 
+pub fn count_trailing_character(value: &str, char: char) -> usize {
+    let mut count = 0;
+    for c in value.chars().rev() {
+        if c == char {
+            count += 1;
+        } else {
+            return count;
+        }
+    }
+    count
+}
+
 pub fn count_leading_spaces(value: &str) -> usize {
     count_leading_character(value, ' ')
+}
+
+pub fn trim_linefeeds(value: &str) -> String {
+    let leading_count = count_leading_character(value, '\n');
+    let trailing_count = count_trailing_character(value, '\n');
+    if leading_count == 0 && trailing_count == 0 {
+        value.to_string()
+    } else {
+        let trailing_index = value.len() - trailing_count;
+        value[leading_count..trailing_index].to_string()
+    }
+}
+
+pub fn print_chars(value: &str) {
+    println!("\nutil::parse::print_chars() - length = {}; value = \"{}\"", value.len(), value);
+    for (index, c) in value.chars().enumerate() {
+        let ascii = if c.is_ascii() {
+            (c as u8).to_string()
+        } else {
+            "not ASCII".to_string()
+        };
+        println!("[{}] '{}' ASCII {}", index, c, ascii);
+    }
+    println!();
 }
 
 pub fn remove_zero_width_no_break_space(text: &str) -> String {
@@ -659,5 +695,15 @@ mod tests {
         let splits = split_outside_of_delimiters_rc(text, "|", "[[", "]]", context).unwrap();
         let act = splits.iter().join("~");
         assert_eq!(exp, act);
+    }
+
+    #[test]
+    fn test_trim_linefeeds() {
+        assert_eq!("abc", trim_linefeeds("abc"));
+        assert_eq!("ab\nc", trim_linefeeds("ab\nc"));
+        assert_eq!("ab\nc", trim_linefeeds("\nab\nc"));
+        assert_eq!("ab\nc", trim_linefeeds("ab\nc\n"));
+        assert_eq!("ab\nc", trim_linefeeds("ab\nc\n\n"));
+        assert_eq!("ab\nc", trim_linefeeds("\n\nab\nc\n\n\n"));
     }
 }

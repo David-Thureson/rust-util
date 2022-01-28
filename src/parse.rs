@@ -259,8 +259,10 @@ pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter:
 }
 
 pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<(bool, String)>, String> {
-    // let debug = text.contains("Happier");
-    // if debug { //bg!(text, left_delimiter, right_delimiter, context); }
+    // if text.eq("on_data_structures_and_algorithms_with_rust|Hands-On Data Structures and Algorithms with Rust]]") { panic!() }
+    // let debug = text.contains("on_data_structures_and_algorithms_with_rust|Hands");
+    let debug = false;
+    if debug { dbg!(text, left_delimiter, right_delimiter, context); }
     let err_func = |pos: usize, msg: &str| Err(
         format!("{} split_delimited_and_normal_rc: pos = {}: {} left = \"{}\", right = \"{}\", text = \"{}\".",
         context, pos, msg, left_delimiter, right_delimiter, text));
@@ -283,7 +285,7 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
             // where to look.
             text[pos..].find(right_delimiter).map(|x| x + pos)
         };
-        // if debug { println!("\nTop of loop:"); //bg!(pos, next_left, next_right); }
+        if debug { println!("\nTop of loop:"); dbg!(pos, next_left, next_right); }
         match next_left {
             Some(next_left) => {
                 // We expect that we're seeing a non-delimited substring (which may be zero length)
@@ -298,14 +300,16 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
                 match next_right {
                     Some(next_right) => {
                         if next_right < next_left {
+                            if debug { panic!("Extra right delimiter."); }
                             return err_func(pos, "Extra right delimiter.");
                         }
                         let pos_substring_start = next_left + left_delimiter.len();
-                        // if debug { //bg!(pos_substring_start); }
+                        if debug { dbg!(pos_substring_start); }
                         v.push((true, text[pos_substring_start..next_right].to_string()));
                         pos = next_right + right_delimiter.len();
                     },
                     None => {
+                        if debug { panic!("Missing right delimiter."); }
                         return err_func(pos, "Missing right delimiter.");
                     },
                 };

@@ -92,6 +92,10 @@ pub fn year_month_to_mon_format(year: i32, month: u32) -> String {
     format!("{}, {}", mon, year)
 }
 
+pub fn date_time_to_naive_date(value: &DateTime<Local>) -> NaiveDate {
+    NaiveDate::from_ymd(value.year(), value.month(), value.day())
+}
+
 pub fn datetime_as_date(value: &DateTime<Local>) -> String {
     value.format("%Y-%m-%d").to_string()
 }

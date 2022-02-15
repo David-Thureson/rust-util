@@ -289,11 +289,32 @@ pub fn first_cap_phrase(value: &str) -> String {
     if value.is_empty() {
         "".to_string()
     } else {
+        let mut result = "".to_string();
+        let chars = value.chars();
+        let mut prev_char = ' '; // This needs to be a space or punctuation character.
+        for c in chars {
+            if prev_char == ' ' || prev_char.is_ascii_punctuation() {
+                result.push(c.to_ascii_uppercase());
+            } else {
+                result.push(c.to_ascii_lowercase());
+            }
+            prev_char = c;
+        }
+        result
+    }
+}
+
+/*
+pub fn first_cap_phrase(value: &str) -> String {
+    if value.is_empty() {
+        "".to_string()
+    } else {
         value.split(" ").into_iter()
             .map(|word| first_cap_word(word))
             .join(" ")
     }
 }
+*/
 
 pub fn first_cap_word(value: &str) -> String {
     if value.is_empty() {
@@ -305,6 +326,10 @@ pub fn first_cap_word(value: &str) -> String {
         // format!("{}{}", value[0..1], value[1..])
         format!("{}{}", first.to_uppercase(), rest.to_lowercase())
     }
+}
+
+pub fn screaming_snake_case(value: &str) -> String {
+    value.replace(" ", "_").to_uppercase()
 }
 
 pub fn limit_length(value: &str, max_length: Option<usize>) -> String {

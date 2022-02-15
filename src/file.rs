@@ -21,7 +21,16 @@ pub fn path_buf(components: &[&str]) -> PathBuf {
 pub fn path_name<P>(path: P) -> String
     where P: AsRef<Path>,
 {
-    path.as_ref().to_string_lossy().to_string()
+    let path_name = path.as_ref().to_string_lossy();
+    let path_name = canonical_path_name(&path_name);
+    path_name
+}
+
+pub fn canonical_path_name(path_name: &str) -> String {
+    let path_name = path_name.trim();
+    // Clean up the path name by using only forward slashes, in case we need to compare path names.
+    let path_name = path_name.replace(r"\", "/");
+    path_name.to_string()
 }
 
 pub fn path_file_name_r<P>(path: P) -> Result<String, String>
@@ -85,14 +94,29 @@ pub fn dir_entry_to_naive_date(dir_entry: &DirEntry) -> NaiveDate {
     NaiveDate::from_ymd(date.year(), date.month(), date.day())
 }
 
-pub fn write_file<P>(path: P, contents: &str) -> Result<(), String>
+pub fn write_file_r<P>(path: P, contents: &str) -> Result<(), String>
     where P: AsRef<Path>
 {
     path_create_if_necessary_r(&path)?;
     rse!(fs::write(path, contents))
 }
 
-pub fn read_file_to_string<P>(path: P) -> Result<String, String>
+pub fn write_if_changed_r<P>(path: P, contents: &str) -> Result<bool, String>
+    where P: AsRef<Path>
+{
+    if path_exists(&path) {
+        let found_contents = read_file_to_string_r(&path)?;
+        if contents.eq(&found_contents) {
+            return Ok(false)
+        }
+    }
+    match write_file_r(path, contents) {
+        Ok(()) => Ok(true),
+        Err(err) => Err(err),
+    }
+}
+
+pub fn read_file_to_string_r<P>(path: P) -> Result<String, String>
     where P: AsRef<Path>
 {
     path_exists_r(&path)?;
@@ -368,7 +392,7 @@ pub fn remove_bom_characters<S, D>(path_source_file: S, path_dest_file: D)
         .filter(|val| **val < 254)
         .map(|val| *val as char)
         .join("");
-    write_file(&path_dest_file, &fixed_content).unwrap();
+    write_file_r(&path_dest_file, &fixed_content).unwrap();
     // {
         // let w = File::create(&path_dest_file).unwrap();
         // let mut writer = BufWriter::new(w);

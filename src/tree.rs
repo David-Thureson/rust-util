@@ -147,6 +147,8 @@ impl <T> Tree<T>
 
     fn do_calculations(&mut self) {
         assert!(!self.calc_done, "do_calculations() called twice.");
+        assert!(!self.node_map.is_empty());
+        assert!(!self.top_nodes.is_empty());
         for node_rc in self.node_map.values() {
             m!(node_rc).do_calculations();
         }

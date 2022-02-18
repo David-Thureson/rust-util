@@ -1,6 +1,6 @@
 // Date/time formatting escape sequences: https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html
 
-use chrono::{NaiveDate, DateTime, Local, Datelike};
+use chrono::{NaiveDate, DateTime, Local, Datelike, NaiveDateTime};
 use std::time::{SystemTime, Instant};
 use std::collections::BTreeMap;
 
@@ -12,6 +12,11 @@ const FORMAT_DATE_MON: &str = "%b %-d, %Y"; // Like "Jan 3, 2022".
 pub fn naive_date_now() -> NaiveDate {
     let date_time: DateTime<Local> = Local::now();
     NaiveDate::from_ymd(date_time.year(), date_time.month(), date_time.day())
+}
+
+pub fn naive_date_time_now() -> NaiveDateTime {
+    let date_time: DateTime<Local> = Local::now();
+    date_time.naive_local()
 }
 
 pub fn date_for_file_name(date: &NaiveDate) -> String {
@@ -104,8 +109,24 @@ pub fn datetime(value: &DateTime<Local>) -> String {
     value.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
+pub fn naive_date_time_to_seconds_format(value: &NaiveDateTime) -> String {
+    value.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+pub fn naive_date_time_to_seconds_format_time_only(value: &NaiveDateTime) -> String {
+    value.format("%H:%M:%S").to_string()
+}
+
 pub fn systemtime_as_date(value: &SystemTime) -> String {
     datetime_as_date(&DateTime::<Local>::from(*value))
+}
+
+pub fn systemtime_as_date_time(value: &SystemTime) -> DateTime<Local> {
+    DateTime::<Local>::from(*value)
+}
+
+pub fn systemtime_as_naive_date_time(value: &SystemTime) -> NaiveDateTime {
+    systemtime_as_date_time(value).naive_local()
 }
 
 pub fn systemtime(value: &SystemTime) -> String {

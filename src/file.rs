@@ -97,7 +97,9 @@ pub fn dir_entry_to_naive_date(dir_entry: &DirEntry) -> NaiveDate {
 pub fn write_file_r<P>(path: P, contents: &str) -> Result<(), String>
     where P: AsRef<Path>
 {
-    path_create_if_necessary_r(&path)?;
+    // Eventually add something to create the folder if necessary. This is not a call to
+    // path_create_if_necessary_r(&path) because that would create a folder with the name of the
+    // file we're trying to write.
     rse!(fs::write(path, contents))
 }
 

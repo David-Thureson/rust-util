@@ -100,7 +100,7 @@ pub fn parse_chrome_bookmarks_internal(lines: &[String]) -> BookmarkSet {
             }
             b.sets.push(Box::new(parse_chrome_bookmarks_internal(&lines[line_index_nested_start..line_index + 1])));
         } else {
-            panic!(format!("Unexpected line: {}", line));
+            panic!("Unexpected line: {}", line);
         }
         line_index += 1;
     }

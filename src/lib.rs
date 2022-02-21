@@ -1,5 +1,4 @@
 #![feature(slice_partition_dedup)]
-#![feature(str_split_once)]
 #![feature(in_band_lifetimes)]
 #![macro_use]
 extern crate titlecase;

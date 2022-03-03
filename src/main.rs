@@ -18,7 +18,7 @@ fn main() {
     // try_terminal_size();
     // try_hanging_indent();
     // extract::try_extract_multiple();
-    parse::try_split_delimited_and_normal_rc();
+    // parse::try_split_delimited_and_normal_rc();
 
     println!("\nUtil done.\n");
 }

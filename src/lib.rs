@@ -18,6 +18,7 @@ pub mod log;
 pub mod math;
 pub mod number;
 pub mod parse;
+pub mod spreadsheet;
 pub mod stats_usize;
 pub mod tab;
 pub mod tree;

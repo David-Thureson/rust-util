@@ -267,6 +267,22 @@ pub fn remove_repeated(value: &str, substring: &str) -> String {
     unreachable!()
 }
 
+#[allow(unreachable_code)]
+pub fn remove_repeated_n(value: &str, substring: &str, max_repeat_count: usize) -> String {
+    // For instance, double linefeeds are allowed but anything after that should be removed.
+    let mut value = value.to_string();
+    let substring_max_repeat = substring.repeat(max_repeat_count);
+    let substring_more_than_max_repeat = substring.repeat(max_repeat_count + 1);
+    loop {
+        let len = value.len();
+        value = value.replace(&substring_more_than_max_repeat, &substring_max_repeat);
+        if value.len() == len {
+            return value;
+        }
+    }
+    unreachable!()
+}
+
 pub fn remove_surrounding_delimiters(value: &str, left: &str, right: &str) -> String {
     if value.starts_with(left) && value.ends_with(right) {
         value[left.len()..value.len()-right.len()].to_string()

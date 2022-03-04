@@ -7,7 +7,7 @@ use crate::format::format_zeros;
 
 use crate::*;
 use crate::date_time::date_for_file_name_now;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, BufRead};
 use itertools::Itertools;
 
 pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
@@ -123,6 +123,58 @@ pub fn read_file_to_string_r<P>(path: P) -> Result<String, String>
 {
     path_exists_r(&path)?;
     rse!(fs::read_to_string(path))
+}
+
+pub fn read_file_to_string_remove_bom_chars_r<P>(path: P) -> Result<String, String>
+    where P: AsRef<Path>
+{
+    match read_file_to_string_r(&path) {
+        Ok(lines) => Ok(lines),
+        Err(e) => {
+            if e.contains("valid UTF-8") {
+                remove_bom_characters(&path, &path);
+                read_file_to_string_r(&path)
+            } else {
+                Err(e)
+            }
+        }
+    }
+}
+
+pub fn read_file_as_lines_r<P>(path: P) -> Result<Vec<String>, String>
+    where P: AsRef<Path>
+{
+    path_exists_r(&path)?;
+    let mut lines = vec![];
+    let file = rse!(File::open(path))?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        match line {
+            Ok(line) => {
+                lines.push(line);
+            },
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        }
+    }
+    Ok(lines)
+}
+
+pub fn read_file_as_lines_remove_bom_chars_r<P>(path: P) -> Result<Vec<String>, String>
+    where P: AsRef<Path>
+{
+    match read_file_as_lines_r(&path) {
+        Ok(lines) => Ok(lines),
+        Err(e) => {
+            if e.contains("valid UTF-8") {
+                remove_bom_characters(&path, &path);
+                read_file_as_lines_r(&path)
+            } else {
+                Err(e)
+            }
+        }
+    }
 }
 
 pub fn path_create_if_necessary_r<P>(path: P) -> Result<bool, String>

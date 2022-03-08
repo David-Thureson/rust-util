@@ -19,6 +19,7 @@ fn main() {
     // try_hanging_indent();
     // extract::try_extract_multiple();
     // parse::try_split_delimited_and_normal_rc();
+    info_theory::levenshtein::main();
 
     println!("\nUtil done.\n");
 }

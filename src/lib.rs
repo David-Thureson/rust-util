@@ -14,6 +14,7 @@ pub mod format;
 pub mod file;
 pub mod group;
 pub mod html;
+pub mod info_theory;
 pub mod log;
 pub mod math;
 pub mod number;

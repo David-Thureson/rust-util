@@ -227,6 +227,67 @@ pub fn path_file_names_r<P>(path: P) -> Result<Vec<String>, String>
     Ok(file_names)
 }
 
+pub fn move_files_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    path_exists_r(&path_source)?;
+    path_create_if_necessary_r(&path_dest)?;
+    for entry in path_entries_r(&path_source)? {
+        let file_name = path_file_name_r(&entry)?;
+        let path_dest_one = path_dest.as_ref().join(file_name);
+        if path_is_file_r(&entry)? {
+            rse!(fs::copy(&entry, path_dest_one))?;
+            rse!(fs::remove_file(&entry))?;
+        }
+    }
+    Ok(())
+}
+
+pub fn remove_files_r<S>(path_source: S) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+{
+    path_exists_r(&path_source)?;
+    assert!(path_is_directory_r(&path_source)?);
+    for entry in path_entries_r(&path_source)? {
+        if path_is_file_r(&entry)? {
+            rse!(fs::remove_file(&entry))?;
+        }
+    }
+    Ok(())
+}
+
+pub fn copy_file_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    path_exists_r(&path_source)?;
+    rse!(fs::copy(path_source, path_dest))?;
+    Ok(())
+}
+
+pub fn copy_folder_files_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
+    where
+        S: AsRef<Path>,
+        D: AsRef<Path>,
+{
+    path_exists_r(&path_source)?;
+    path_create_if_necessary_r(&path_dest)?;
+    assert!(path_is_directory_r(&path_source)?);
+    assert!(path_is_directory_r(&path_dest)?);
+    for entry in path_entries_r(&path_source)? {
+        if path_is_file_r(&entry)? {
+            let file_name = path_file_name_r(&entry)?;
+            let path_dest_one = path_dest.as_ref().join(file_name);
+            rse!(fs::copy(entry, path_dest_one))?;
+        }
+    }
+    Ok(())
+}
+
 pub fn copy_folder_recursive_r<S, D>(path_source: S, path_dest: D) -> Result<(), String>
     where
         S: AsRef<Path>,
@@ -235,6 +296,8 @@ pub fn copy_folder_recursive_r<S, D>(path_source: S, path_dest: D) -> Result<(),
     // From https://stackoverflow.com/questions/26958489/how-to-copy-a-folder-recursively-in-rust.
     path_exists_r(&path_source)?;
     path_create_if_necessary_r(&path_dest)?;
+    assert!(path_is_directory_r(&path_source)?);
+    assert!(path_is_directory_r(&path_dest)?);
     for entry in path_entries_r(&path_source)? {
         let file_name = path_file_name_r(&entry)?;
         let path_dest_one = path_dest.as_ref().join(file_name);

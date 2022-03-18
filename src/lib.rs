@@ -9,6 +9,7 @@ pub use std::cell::RefCell;
 pub mod bool;
 pub mod convert;
 pub mod date_time;
+pub mod elapsed;
 pub mod extract;
 pub mod format;
 pub mod file;

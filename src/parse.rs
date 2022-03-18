@@ -6,6 +6,10 @@ use std::fs::File;
 use crate::err_context;
 use itertools::Itertools;
 
+pub fn main() {
+    try_split_delimited_and_normal_rc();
+}
+
 pub fn read_file_as_lines(file_name: &str) -> Vec<String> {
     let file = File::open(file_name).unwrap();
     let reader = BufReader::new(file);
@@ -258,14 +262,15 @@ pub fn delimited_entries_trim(text: &str, left_delimiter: &str, right_delimiter:
     trim_string_vector(&delimited_entries(text, left_delimiter, right_delimiter))
 }
 
-pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<(bool, String)>, String> {
+pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_delimiter: &str, trim: bool, context: &str) -> Result<Vec<(bool, String)>, String> {
     // if text.eq("on_data_structures_and_algorithms_with_rust|Hands-On Data Structures and Algorithms with Rust]]") { panic!() }
     // let debug = text.contains("on_data_structures_and_algorithms_with_rust|Hands");
     let debug = false;
-    if debug { dbg!(text, left_delimiter, right_delimiter, context); }
+    if debug { dbg!(text, left_delimiter, right_delimiter, context, trim); }
     let err_func = |pos: usize, msg: &str| Err(
-        format!("{} split_delimited_and_normal_rc: pos = {}: {} left = \"{}\", right = \"{}\", text = \"{}\".",
-        context, pos, msg, left_delimiter, right_delimiter, text));
+        format!("{} split_delimited_and_normal_rc: pos = {}: {} left = \"{}\"; right = \"{}\"; trim = {}; text = \"{}\".",
+        context, pos, msg, left_delimiter, right_delimiter, trim, text));
+    let text = if trim { text.trim().to_string() } else { text.to_string() };
     let mut v = vec![];
     let mut pos = 0;
     while pos < text.len() {
@@ -294,7 +299,9 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
                 // delimited substring, that is a left delimiter in position 0, or if there's a new
                 // delimited substring immediately following the last one.
                 if next_left > pos {
-                    v.push((false, text[pos..next_left].to_string()));
+                    let text_one = &text[pos..next_left];
+                    let text_one = if trim { text_one.trim().to_string() } else { text_one.to_string() };
+                    v.push((false, text_one));
                 }
                 // Presumably there's a right delimiter to match the left one.
                 match next_right {
@@ -305,7 +312,9 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
                         }
                         let pos_substring_start = next_left + left_delimiter.len();
                         if debug { dbg!(pos_substring_start); }
-                        v.push((true, text[pos_substring_start..next_right].to_string()));
+                        let text_one = &text[pos_substring_start..next_right];
+                        let text_one = if trim { text_one.trim().to_string() } else { text_one.to_string() };
+                        v.push((true, text_one));
                         pos = next_right + right_delimiter.len();
                     },
                     None => {
@@ -320,7 +329,9 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
                     // There's an unexpected delimiter.
                     return err_func(pos, "Extra right delimiter.");
                 }
-                v.push((false, text[pos..].to_string()));
+                let text_one = &text[pos..];
+                let text_one = if trim { text_one.trim().to_string() } else { text_one.to_string() };
+                v.push((false, text_one));
                 break;
             }
         }
@@ -328,7 +339,7 @@ pub fn split_delimited_and_normal_rc(text: &str, left_delimiter: &str, right_del
     Ok(v)
 }
 
-pub fn replace_within_delimiters_rc(text: &str, left_delimiter: &str, right_delimiter: &str, from: &str, to: &str, context: &str) -> Result<String, String> {
+pub fn replace_within_delimiters_rc(text: &str, left_delimiter: &str, right_delimiter: &str, from: &str, to: &str, trim: bool, context: &str) -> Result<String, String> {
     // Replace one substring with another, but only within the parts of the text that are between
     // certain delimiters. This is used when we want to do something with those "from" substrings
     // only where they don't appear between the delimiters.
@@ -339,7 +350,7 @@ pub fn replace_within_delimiters_rc(text: &str, left_delimiter: &str, right_deli
     // So we call this function and replace the pipes inside the brackets with a placeholder:
     //   | [[tools:nav:attributes#Narrator{{{pipe}}}Narrator]] | [[tools:nav:attribute_values#Mark Steinberg{{{pipe}}}Mark Steinberg]] |
     // and now we can easily count or split on the pipes that are cell separators.
-    let delimited_splits = split_delimited_and_normal_rc(text, left_delimiter, right_delimiter, context)?;
+    let delimited_splits = split_delimited_and_normal_rc(text, left_delimiter, right_delimiter, trim, context)?;
     let new_text = delimited_splits.iter()
         .map(|(split_is_delimited, split_text)| if *split_is_delimited {
             // Put the left and right delimiters back, and do the replacement.
@@ -351,7 +362,7 @@ pub fn replace_within_delimiters_rc(text: &str, left_delimiter: &str, right_deli
     Ok(new_text)
 }
 
-pub fn split_outside_of_delimiters_rc(text: &str, split_delimiter: &str, left_delimiter: &str, right_delimiter: &str, context: &str) -> Result<Vec<String>, String> {
+pub fn split_outside_of_delimiters_rc(text: &str, split_delimiter: &str, left_delimiter: &str, right_delimiter: &str, trim: bool, context: &str) -> Result<Vec<String>, String> {
     // Split based on a delimiter, but ignore cases where that split delimiter appears inside some
     // other delimiters.
     // For example, here the pipe characters with spaces around them are considered cell
@@ -362,7 +373,7 @@ pub fn split_outside_of_delimiters_rc(text: &str, split_delimiter: &str, left_de
     // appear inside the bracketed parts.
     let placeholder = "{{{split_outside_of_delimiters}}}";
     // Replace the split delimiters we don't want to split on with a placeholder.
-    let temp_with_replacements = replace_within_delimiters_rc(text, left_delimiter, right_delimiter, split_delimiter, placeholder, context)?;
+    let temp_with_replacements = replace_within_delimiters_rc(text, left_delimiter, right_delimiter, split_delimiter, placeholder, trim, context)?;
     // Split on the remaining split delimiters, then put back the ones we took out earlier.
     let splits = temp_with_replacements.split(split_delimiter).into_iter()
         .map(|split| split.replace(placeholder, split_delimiter))
@@ -498,45 +509,59 @@ pub fn remove_zero_width_no_break_space(text: &str) -> String {
     text.replace("\u{feff}", "")
 }
 
-pub fn try_split_delimited_and_normal_rc() {
+pub(crate) fn try_split_delimited_and_normal_rc() {
     // Normal case:
     let context = "Test";
 
     let text = "ab [[c]]e [[fg ]] hij";
+    // Untrimmed.
     let exp = vec![(false, "ab "), (true, "c"), (false, "e "), (true, "fg "), (false, " hij")];
     let exp = test_split_delimited_exp_to_strings(exp);
-    let act = split_delimited_and_normal_rc(text, "[[", "]]", context).unwrap();
-    //bg!(&exp, &act);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", false, context).unwrap();
+    if exp.ne(&act) { dbg!(&exp, &act); }
+    assert!(exp.eq(&act));
+    // Trimmed.
+    let exp = vec![(false, "ab"), (true, "c"), (false, "e"), (true, "fg"), (false, "hij")];
+    let exp = test_split_delimited_exp_to_strings(exp);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", true, context).unwrap();
+    if exp.ne(&act) { dbg!(&exp, &act); }
     assert!(exp.eq(&act));
 
     // Start and end with delimited substrings, and have delimited substrings that touch without
     // a non-delimited substring between them.
     let text = "[[ab]][[ c ]]  d [[efg]]";
+    // Untrimmed.
     let exp = vec![(true, "ab"), (true, " c "), (false, "  d "), (true, "efg")];
     let exp = test_split_delimited_exp_to_strings(exp);
-    let act = split_delimited_and_normal_rc(text, "[[", "]]", context).unwrap();
-    //bg!(&exp, &act);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", false, context).unwrap();
+    if exp.ne(&act) { dbg!(&exp, &act); }
+    assert!(exp.eq(&act));
+    // Trimmed.
+    let exp = vec![(true, "ab"), (true, "c"), (false, "d"), (true, "efg")];
+    let exp = test_split_delimited_exp_to_strings(exp);
+    let act = split_delimited_and_normal_rc(text, "[[", "]]", true, context).unwrap();
+    if exp.ne(&act) { dbg!(&exp, &act); }
     assert!(exp.eq(&act));
 
     // Error: Start with a right delimiter.
     let text = "]]a[[b]]";
-    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", false, context).err().unwrap());
 
     // Error: Start with a right delimiter, no left delimiters.
     let text = "]]a";
-    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", false, context).err().unwrap());
 
     // Error: First right delimiter before first left delimiter.
     let text = "abc]]a[[b]]";
-    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", false, context).err().unwrap());
 
     // Error: Right delimiter but no left delimiter.
     let text = "abc]]a";
-    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", false, context).err().unwrap());
 
     // Error: Delimited substring doesn't end (no right delimiter).
     let text = "[[abc]]a[[b]]c[[d";
-    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", context).err().unwrap());
+    println!("{}", split_delimited_and_normal_rc(text, "[[", "]]", false, context).err().unwrap());
 }
 
 fn test_split_delimited_exp_to_strings(v: Vec<(bool, &str)>) -> Vec<(bool, String)> {
@@ -687,7 +712,7 @@ mod tests {
         let context = "test_replace_within_delimiters_rc";
         let text = "| [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |";
         let exp = "| [[tools:nav:attributes#Narrator{{{pipe}}}Narrator]] | [[tools:nav:attribute_values#Mark Steinberg{{{pipe}}}Mark Steinberg]] |";
-        let act = replace_within_delimiters_rc(text, "[[", "]]", "|", "{{{pipe}}}", context).unwrap();
+        let act = replace_within_delimiters_rc(text, "[[", "]]", "|", "{{{pipe}}}", false, context).unwrap();
         assert_eq!(exp, act);
     }
 
@@ -696,7 +721,7 @@ mod tests {
         let context = "test_split_outside_of_delimiters_rc";
         let text = "| [[tools:nav:attributes#Narrator|Narrator]] | [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] |";
         let exp = "~ [[tools:nav:attributes#Narrator|Narrator]] ~ [[tools:nav:attribute_values#Mark Steinberg|Mark Steinberg]] ~";
-        let splits = split_outside_of_delimiters_rc(text, "|", "[[", "]]", context).unwrap();
+        let splits = split_outside_of_delimiters_rc(text, "|", "[[", "]]", false, context).unwrap();
         let act = splits.iter().join("~");
         assert_eq!(exp, act);
     }

@@ -9,6 +9,7 @@ use crate::*;
 use crate::date_time::date_for_file_name_now;
 use std::io::{BufReader, Read, BufRead};
 use itertools::Itertools;
+use std::borrow::Borrow;
 
 pub fn dir_entry_to_file_name(dir_entry: &DirEntry) -> String {
     dir_entry.file_name().to_str().unwrap().to_string()
@@ -22,23 +23,23 @@ pub fn path_name<P>(path: P) -> String
     where P: AsRef<Path>,
 {
     let path_name = path.as_ref().to_string_lossy();
-    let path_name = canonical_path_name(&path_name);
+    let path_name = canonical_path_name((&path_name).borrow());
     path_name
 }
 
 pub fn canonical_path_name(path_name: &str) -> String {
-    let path_name = path_name.trim();
-    // Clean up the path name by using only forward slashes, in case we need to compare path names.
-    let path_name = path_name.replace(r"\", "/");
-    path_name.to_string()
+    path_name.trim().replace(r"\", "/")
 }
 
 pub fn path_file_name_r<P>(path: P) -> Result<String, String>
     where P: AsRef<Path>,
 {
     match path.as_ref().file_name() {
-        Some(file_name) => Ok(file_name.to_string_lossy().parse().unwrap()),
-        None => Err(format!("No file name found for path \"{}\".", path.as_ref().to_string_lossy())),
+        Some(file_name) => {
+            Ok(file_name.to_string_lossy().parse::<String>().unwrap().replace(r"\", "/"))
+            // Ok(canonical_path_name(file_name))
+        },
+        None => Err(format!("No file name found for path \"{}\".", path_name(path))),
     }
 }
 
@@ -54,7 +55,7 @@ pub fn path_exists_r<P>(path: P) -> Result<(), String>
     if path_exists(&path) {
         Ok(())
     } else {
-        Err(format!("Path does not exist: \"{}\".", path.as_ref().to_string_lossy()))
+        Err(format!("Path does not exist: \"{}\".", path_name(path)))
     }
 }
 
@@ -62,7 +63,7 @@ pub fn path_is_new_r<P>(path: P) -> Result<(), String>
     where P: AsRef<Path>,
 {
     if path_exists(&path) {
-        Err(format!("Path already exists: \"{}\".", path.as_ref().to_string_lossy()))
+        Err(format!("Path already exists: \"{}\".", path_name(path)))
     } else {
         Ok(())
     }
@@ -816,14 +817,14 @@ mod tests {
 
     #[test]
     fn test_path_folder_with_number() {
-        let exp_path_name = format!("C:\\One\\Abc 2021-03-15 0021");
-        let act_path_name = path_name(&path_folder_with_number(Path::new("C:\\One"), "Abc 2021-03-15", 21, 4));
+        let exp_path_name = format!("C:/One/Abc 2021-03-15 0021");
+        let act_path_name = path_name(&path_folder_with_number(Path::new("C:/One"), "Abc 2021-03-15", 21, 4));
         assert_eq!(exp_path_name, act_path_name);
 
         // Make sure it works when the number is too high for the number of digits. It should use
         // the whole number anyway.
-        let exp_path_name = format!("C:\\One\\Abc 2021-03-15 12345");
-        let act_path_name = path_name(&path_folder_with_number(Path::new("C:\\One"), "Abc 2021-03-15", 12345, 3));
+        let exp_path_name = format!("C:/One/Abc 2021-03-15 12345");
+        let act_path_name = path_name(&path_folder_with_number(Path::new("C:/One"), "Abc 2021-03-15", 12345, 3));
         assert_eq!(exp_path_name, act_path_name);
     }
 
@@ -861,7 +862,7 @@ mod tests {
         assert_eq!(None, path_folder_highest_number_r(&path, prefix).unwrap());
 
         let (highest_number, digits) = create_numbered_test_folders(&path, prefix);
-        let exp_path_name = format!("{}\\{} {}", path_name(&path), prefix, format_zeros(highest_number, digits));
+        let exp_path_name = format!("{}/{} {}", path_name(&path), prefix, format_zeros(highest_number, digits));
         let act_path_name= path_name(&path_folder_highest_number_r(&path, prefix).unwrap().unwrap());
         assert_eq!(exp_path_name, act_path_name);
     }
@@ -875,12 +876,12 @@ mod tests {
         let digits = 4;
 
         // At first there are no folders matching the prefix, so the folder will end with a 1.
-        let exp_path_name = format!("{}\\{} {}", path_name(&path), prefix, format_zeros(1, digits));
+        let exp_path_name = format!("{}/{} {}", path_name(&path), prefix, format_zeros(1, digits));
         let act_path_name= path_name(&path_folder_next_number_r(&path, prefix, digits).unwrap());
         assert_eq!(exp_path_name, act_path_name);
 
         let (highest_number, _) = create_numbered_test_folders(&path, prefix);
-        let exp_path_name = format!("{}\\{} {}", path_name(&path), prefix, format_zeros(highest_number + 1, digits));
+        let exp_path_name = format!("{}/{} {}", path_name(&path), prefix, format_zeros(highest_number + 1, digits));
         let act_path_name= path_name(&path_folder_next_number_r(&path, prefix, digits).unwrap());
         assert_eq!(exp_path_name, act_path_name);
     }
@@ -899,12 +900,12 @@ mod tests {
         create_numbered_test_folders(&path, prefix);
 
         // At first there are no folders matching the prefix, so the folder will end with a 1.
-        let exp_path_name = format!("{}\\{} {} {}", path_name(&path), prefix, date_string, format_zeros(1, digits));
+        let exp_path_name = format!("{}/{} {} {}", path_name(&path), prefix, date_string, format_zeros(1, digits));
         let act_path_name= path_name(&path_folder_dated_next_number_r(&path, prefix, digits).unwrap());
         assert_eq!(exp_path_name, act_path_name);
 
         let (highest_number, _) = create_dated_numbered_test_folders(&path, prefix);
-        let exp_path_name = format!("{}\\{} {} {}", path_name(&path), prefix, date_string, format_zeros(highest_number + 1, digits));
+        let exp_path_name = format!("{}/{} {} {}", path_name(&path), prefix, date_string, format_zeros(highest_number + 1, digits));
         let act_path_name= path_name(&path_folder_dated_next_number_r(&path, prefix, digits).unwrap());
         assert_eq!(exp_path_name, act_path_name);
     }
@@ -923,7 +924,7 @@ mod tests {
         let path_dest_folder = back_up_folder_next_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 001", path_name(&path_test_root));
+        let exp_dest_folder_name = format!("{}/Backup/April/Back Green 001", path_name(&path_test_root));
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
 
@@ -933,7 +934,7 @@ mod tests {
         //bg!(path_name(&path_dest_folder));
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green 002", path_name(&path_test_root));
+        let exp_dest_folder_name = format!("{}/Backup/April/Back Green 002", path_name(&path_test_root));
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
     }
@@ -954,7 +955,7 @@ mod tests {
         let path_dest_folder = back_up_folder_dated_next_number_r(&path_source_folder, &path_dest_base, "Back Green", 3).unwrap();
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green {} 001", path_name(&path_test_root), date_string);
+        let exp_dest_folder_name = format!("{}/Backup/April/Back Green {} 001", path_name(&path_test_root), date_string);
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
 
@@ -964,7 +965,7 @@ mod tests {
         //bg!(path_name(&path_dest_folder));
         let act_file_names = path_file_names_r(&path_dest_folder).unwrap();
         assert_eq!(exp_file_names, act_file_names);
-        let exp_dest_folder_name = format!("{}\\Backup\\April\\Back Green {} 002", path_name(&path_test_root), date_string);
+        let exp_dest_folder_name = format!("{}/Backup/April/Back Green {} 002", path_name(&path_test_root), date_string);
         let act_dest_folder_name = path_name(&path_dest_folder);
         assert_eq!(exp_dest_folder_name, act_dest_folder_name);
     }

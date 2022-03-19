@@ -138,8 +138,16 @@ pub fn between<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str
     rbefore(after(value, pat_before), pat_after)
 }
 
+pub fn between_first<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
+    before(after(value, pat_before), pat_after)
+}
+
 pub fn between_trim<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
     between(value, pat_before, pat_after).trim()
+}
+
+pub fn between_trim_first<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> &'a str {
+    between_first(value, pat_before, pat_after).trim()
 }
 
 pub fn between_optional<'a>(value: &'a str, pat_before: &str, pat_after: &str) -> Option<&'a str> {
